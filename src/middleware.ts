@@ -63,12 +63,6 @@ export async function middleware(request: NextRequest) {
   return NextResponse.next();
 }
 
-// Hanya jalankan middleware di path yang relevan
 export const config = {
-  matcher: [
-    "/dashboard/:path*",
-    "/admin/:path*",
-    "/login",
-    "/register",
-  ],
+  matcher: ["/dashboard/:path*", "/admin/:path*", "/login", "/register"],
 };

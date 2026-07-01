@@ -1,53 +1,47 @@
-import { getServerSession } from 'next-auth'
-import { authOptions } from './auth'
-import { redirect } from 'next/navigation'
-import type { Role } from '@prisma/client'
+// src/lib/auth-utils.ts
+import { getServerSession } from "next-auth";
+import { redirect } from "next/navigation";
+import type { Role } from "@prisma/client";
 
-/**
- * Ambil session di server component / server action
- * Return null kalau belum login
- */
+import { authOptions } from "./auth";
+
+/** Ambil session di server component / route handler / server action */
 export async function getSession() {
-  return await getServerSession(authOptions)
+  return getServerSession(authOptions);
 }
 
-/**
- * Ambil user yang sedang login
- * Auto redirect ke /login kalau belum login
- */
+/** Wajib login — redirect ke /login kalau belum */
 export async function requireAuth() {
-  const session = await getSession()
+  const session = await getSession();
   if (!session?.user) {
-    redirect('/login')
+    redirect("/login");
   }
-  return session.user
+  return session;
 }
 
-/**
- * Require user dengan role tertentu
- * Auto redirect kalau tidak match
- */
+/** Wajib role tertentu — redirect ke / kalau tidak cocok */
 export async function requireRole(allowedRoles: Role[]) {
-  const user = await requireAuth()
-  if (!allowedRoles.includes(user.role)) {
-    // Redirect ke halaman sesuai role user
-    if (user.role === 'CONTRIBUTOR') redirect('/dashboard')
-    if (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') redirect('/admin')
-    redirect('/')
+  const session = await requireAuth();
+  if (!allowedRoles.includes(session.user.role)) {
+    redirect("/");
   }
-  return user
+  return session;
 }
 
-/**
- * Cek apakah user punya role tertentu (untuk logic conditional)
- */
-export function hasRole(userRole: Role, allowedRoles: Role[]): boolean {
-  return allowedRoles.includes(userRole)
+/** Cek role dalam route handler / server action (return boolean, tanpa redirect) */
+export function hasRole(userRole: Role, allowed: Role[]): boolean {
+  return allowed.includes(userRole);
 }
 
-/**
- * Cek apakah user adalah admin
- */
-export function isAdmin(role: Role): boolean {
-  return role === 'ADMIN' || role === 'SUPER_ADMIN'
+/** Landing page tujuan berdasarkan role setelah login */
+export function getDefaultRouteForRole(role: Role): string {
+  switch (role) {
+    case "SUPER_ADMIN":
+    case "ADMIN":
+      return "/admin";
+    case "CONTRIBUTOR":
+      return "/dashboard";
+    default:
+      return "/";
+  }
 }

@@ -1,168 +1,115 @@
-'use client'
+// src/components/layout/UserMenu.tsx
+"use client";
 
-import Link from 'next/link'
-import { useEffect, useRef, useState } from 'react'
-import { signOut } from 'next-auth/react'
-import {
-  User as UserIcon,
-  LayoutDashboard,
-  ShieldCheck,
-  LogOut,
-  ChevronDown,
-  Settings,
-} from 'lucide-react'
-import type { SessionUser } from '@/types'
+import { useSession, signOut } from "next-auth/react";
+import Link from "next/link";
+import { useState, useRef, useEffect } from "react";
+import { LogOut, LayoutDashboard, Shield, User as UserIcon } from "lucide-react";
 
-type Props = {
-  user: SessionUser
-}
+export function UserMenu() {
+  const { data: session, status } = useSession();
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
-export default function UserMenu({ user }: Props) {
-  const [open, setOpen] = useState(false)
-  const dropdownRef = useRef<HTMLDivElement>(null)
-
-  const isAdmin = user.role === 'ADMIN' || user.role === 'SUPER_ADMIN'
-  const isContributor = user.role === 'CONTRIBUTOR'
-
-  // Close dropdown saat klik di luar
   useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setOpen(false)
+    function handleClick(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setOpen(false);
       }
     }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
 
-  // Ambil inisial nama untuk avatar
-  const initial = user.nama?.charAt(0).toUpperCase() || 'U'
+  if (status === "loading") {
+    return (
+      <div className="h-8 w-20 animate-pulse rounded-lg bg-neutral-200 dark:bg-neutral-800" />
+    );
+  }
 
-  const roleLabel = {
-    SUPER_ADMIN: 'Super Admin',
-    ADMIN: 'Admin',
-    CONTRIBUTOR: 'Kontributor',
-    VISITOR: 'Pengunjung',
-  }[user.role]
+  if (!session?.user) {
+    return (
+      <div className="flex items-center gap-2">
+        <Link
+          href="/login"
+          className="text-sm font-medium text-neutral-700 hover:text-brand-600 dark:text-neutral-300 dark:hover:text-brand-400"
+        >
+          Masuk
+        </Link>
+        <Link
+          href="/register"
+          className="rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700"
+        >
+          Daftar
+        </Link>
+      </div>
+    );
+  }
 
-  const roleBadgeColor = {
-    SUPER_ADMIN: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300',
-    ADMIN:       'bg-brand-100 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300',
-    CONTRIBUTOR: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
-    VISITOR:     'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
-  }[user.role]
+  const role = session.user.role;
+  const isAdmin = role === "ADMIN" || role === "SUPER_ADMIN";
+  const dashboardHref = isAdmin ? "/admin" : "/dashboard";
+  const dashboardLabel = isAdmin ? "Panel Admin" : "Dashboard";
+  const DashboardIcon = isAdmin ? Shield : LayoutDashboard;
 
   return (
-    <div ref={dropdownRef} className="relative">
-      {/* Trigger button */}
+    <div className="relative" ref={menuRef}>
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 p-1 pr-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-        aria-label="User menu"
+        className="flex items-center gap-2 rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-sm transition hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900 dark:hover:bg-neutral-800"
       >
-        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center text-white text-sm font-semibold shadow-sm">
-          {user.foto ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={user.foto} alt={user.nama} className="w-full h-full rounded-full object-cover" />
-          ) : (
-            initial
-          )}
+        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-600 text-xs font-bold text-white">
+          {session.user.name?.charAt(0).toUpperCase() ?? "U"}
         </div>
-        <ChevronDown
-          className={`w-4 h-4 text-slate-500 transition-transform ${
-            open ? 'rotate-180' : ''
-          }`}
-        />
+        <span className="hidden max-w-[120px] truncate text-neutral-700 dark:text-neutral-200 sm:inline">
+          {session.user.name}
+        </span>
       </button>
 
-      {/* Dropdown menu */}
       {open && (
-        <div className="absolute right-0 mt-2 w-64 origin-top-right rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-lg animate-slide-down overflow-hidden">
-          {/* Info user */}
-          <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800">
-            <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
-              {user.nama}
-            </p>
-            <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">
-              {user.email}
-            </p>
-            <span
-              className={`inline-block mt-2 text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full ${roleBadgeColor}`}
-            >
-              {roleLabel}
-            </span>
+        <div className="absolute right-0 top-full z-40 mt-2 w-56 overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
+          <div className="border-b border-neutral-100 px-4 py-3 dark:border-neutral-800">
+            <div className="truncate text-sm font-semibold text-neutral-900 dark:text-white">
+              {session.user.name}
+            </div>
+            <div className="mt-0.5 truncate text-xs text-neutral-500">
+              {session.user.email}
+            </div>
+            <div className="mt-1 inline-block rounded bg-brand-100 px-1.5 py-0.5 text-[10px] font-semibold text-brand-700 dark:bg-brand-900/40 dark:text-brand-300">
+              {role}
+            </div>
           </div>
 
-          {/* Menu items */}
-          <div className="py-1.5">
-            {isAdmin && (
-              <MenuLink
-                href="/admin"
-                icon={<ShieldCheck className="w-4 h-4" />}
-                onClick={() => setOpen(false)}
-              >
-                Panel Admin
-              </MenuLink>
-            )}
-
-            {(isContributor || isAdmin) && (
-              <MenuLink
-                href="/dashboard"
-                icon={<LayoutDashboard className="w-4 h-4" />}
-                onClick={() => setOpen(false)}
-              >
-                Dashboard
-              </MenuLink>
-            )}
-
-            <MenuLink
-              href={isAdmin ? '/admin' : '/dashboard/profil'}
-              icon={<UserIcon className="w-4 h-4" />}
+          <div className="py-1">
+            <Link
+              href={dashboardHref}
               onClick={() => setOpen(false)}
+              className="flex items-center gap-2 px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-50 dark:text-neutral-300 dark:hover:bg-neutral-800"
             >
-              Profil Saya
-            </MenuLink>
-          </div>
-
-          {/* Logout */}
-          <div className="border-t border-slate-200 dark:border-slate-800 py-1.5">
+              <DashboardIcon className="h-4 w-4" />
+              {dashboardLabel}
+            </Link>
+            <Link
+              href="/dashboard/profil"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2 px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-50 dark:text-neutral-300 dark:hover:bg-neutral-800"
+            >
+              <UserIcon className="h-4 w-4" />
+              Profil
+            </Link>
             <button
               onClick={() => {
-                setOpen(false)
-                signOut({ callbackUrl: '/' })
+                setOpen(false);
+                signOut({ callbackUrl: "/" });
               }}
-              className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition"
+              className="flex w-full items-center gap-2 border-t border-neutral-100 px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:border-neutral-800 dark:hover:bg-red-950/30"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="h-4 w-4" />
               Keluar
             </button>
           </div>
         </div>
       )}
     </div>
-  )
-}
-
-// Reusable menu link
-function MenuLink({
-  href,
-  icon,
-  children,
-  onClick,
-}: {
-  href: string
-  icon: React.ReactNode
-  children: React.ReactNode
-  onClick?: () => void
-}) {
-  return (
-    <Link
-      href={href}
-      onClick={onClick}
-      className="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-    >
-      <span className="text-slate-500 dark:text-slate-400">{icon}</span>
-      {children}
-    </Link>
-  )
+  );
 }

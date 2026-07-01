@@ -44,7 +44,7 @@ export async function POST(request: Request) {
         name,
         email,
         passwordHash,
-        role: "CONTRIBUTOR", // Register default = kontributor
+        role: "CONTRIBUTOR",
       },
       select: { id: true, name: true, email: true, role: true },
     });

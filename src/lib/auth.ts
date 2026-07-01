@@ -1,22 +1,17 @@
 // src/lib/auth.ts
 import type { NextAuthOptions } from "next-auth";
+import type { Adapter } from "next-auth/adapters";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
-import { z } from "zod";
 
 import { prisma } from "./prisma";
 
-const credentialsSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(6),
-});
-
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
+  adapter: PrismaAdapter(prisma) as Adapter,
   session: {
     strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60, // 30 hari
+    maxAge: 30 * 24 * 60 * 60,
   },
   pages: {
     signIn: "/login",
@@ -29,18 +24,55 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        const parsed = credentialsSchema.safeParse(credentials);
-        if (!parsed.success) return null;
+        console.log("\n========== LOGIN ATTEMPT ==========");
+        console.log("Raw credentials:", JSON.stringify(credentials));
 
-        const { email, password } = parsed.data;
+        if (!credentials?.email || !credentials?.password) {
+          console.log("❌ Missing email or password");
+          return null;
+        }
+
+        const email = credentials.email.trim().toLowerCase();
+        const password = credentials.password;
+
+        console.log("→ Email (normalized):", email);
+        console.log("→ Password length:", password.length);
 
         const user = await prisma.user.findUnique({
           where: { email },
         });
-        if (!user) return null;
+
+        if (!user) {
+          console.log("❌ USER NOT FOUND in database for email:", email);
+
+          // Debug: list all users
+          const allUsers = await prisma.user.findMany({
+            select: { email: true },
+          });
+          console.log("→ Users yang ada di DB:", allUsers.map((u) => u.email));
+          return null;
+        }
+
+        console.log("✓ User found:", user.email);
+        console.log("✓ Role:", user.role);
+        console.log("✓ passwordHash (first 30 chars):", user.passwordHash.substring(0, 30));
+        console.log("✓ passwordHash length:", user.passwordHash.length);
 
         const passwordValid = await bcrypt.compare(password, user.passwordHash);
-        if (!passwordValid) return null;
+        console.log("→ bcrypt.compare result:", passwordValid);
+
+        if (!passwordValid) {
+          console.log("❌ PASSWORD MISMATCH");
+
+          // Debug: coba hash password yang diketik & bandingkan
+          const testHash = await bcrypt.hash(password, 12);
+          console.log("→ Hash baru dari password yg diketik:", testHash.substring(0, 30));
+          console.log("→ (hash beda tiap generate itu normal karena salt)");
+          return null;
+        }
+
+        console.log("✅ LOGIN SUCCESS");
+        console.log("===================================\n");
 
         return {
           id: user.id,
@@ -54,7 +86,6 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async jwt({ token, user }) {
-      // Saat login pertama kali, `user` ada — inject id & role ke token
       if (user) {
         token.id = user.id;
         token.role = user.role;
@@ -70,4 +101,5 @@ export const authOptions: NextAuthOptions = {
     },
   },
   secret: process.env.NEXTAUTH_SECRET,
+  debug: true,
 };

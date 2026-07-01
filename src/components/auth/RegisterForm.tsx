@@ -61,7 +61,6 @@ export function RegisterForm() {
 
       toast.success("Registrasi berhasil! Sedang login...");
 
-      // Auto-login setelah register
       const signInRes = await signIn("credentials", {
         email: data.email,
         password: data.password,
@@ -93,7 +92,6 @@ export function RegisterForm() {
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        {/* Nama */}
         <div>
           <label
             htmlFor="name"
@@ -117,7 +115,6 @@ export function RegisterForm() {
           )}
         </div>
 
-        {/* Email */}
         <div>
           <label
             htmlFor="email"
@@ -141,7 +138,6 @@ export function RegisterForm() {
           )}
         </div>
 
-        {/* Password */}
         <div>
           <label
             htmlFor="password"
@@ -167,7 +163,6 @@ export function RegisterForm() {
           )}
         </div>
 
-        {/* Konfirmasi Password */}
         <div>
           <label
             htmlFor="confirmPassword"
