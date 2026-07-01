@@ -38,7 +38,7 @@ export async function getPopularArticles(limit = 5) {
   });
 }
 
-/** Artikel per kategori */
+/** Artikel per kategori (untuk section homepage) */
 export async function getArticlesByCategory(categorySlug: string, limit = 6) {
   return prisma.article.findMany({
     where: {
@@ -106,6 +106,83 @@ export async function getRelatedArticles(
   });
 }
 
+/** Ambil kategori detail + count artikel */
+export async function getCategoryBySlug(slug: string) {
+  return prisma.category.findUnique({
+    where: { slug },
+    include: {
+      _count: {
+        select: {
+          articles: {
+            where: { status: "PUBLISHED" },
+          },
+        },
+      },
+    },
+  });
+}
+
+/** Ambil artikel per kategori dengan pagination */
+export async function getArticlesByCategoryPaginated(
+  categorySlug: string,
+  page = 1,
+  pageSize = 9
+) {
+  const skip = (page - 1) * pageSize;
+
+  const [articles, total] = await Promise.all([
+    prisma.article.findMany({
+      where: {
+        status: "PUBLISHED",
+        category: { slug: categorySlug },
+      },
+      orderBy: { publishedAt: "desc" },
+      skip,
+      take: pageSize,
+      include: {
+        author: { select: { id: true, name: true, image: true } },
+        category: { select: { id: true, name: true, slug: true } },
+      },
+    }),
+    prisma.article.count({
+      where: {
+        status: "PUBLISHED",
+        category: { slug: categorySlug },
+      },
+    }),
+  ]);
+
+  return {
+    articles,
+    total,
+    totalPages: Math.ceil(total / pageSize),
+    currentPage: page,
+  };
+}
+
+/** Type helper untuk komponen yang butuh artikel dengan relasi */
 export type ArticleWithRelations = Awaited<
   ReturnType<typeof getLatestArticles>
 >[number];
+// Tambahkan di src/lib/articles.ts
+
+/** Search artikel berdasarkan judul/konten */
+export async function searchArticles(query: string, limit = 20) {
+  if (!query.trim()) return [];
+
+  return prisma.article.findMany({
+    where: {
+      status: "PUBLISHED",
+      OR: [
+        { title: { contains: query, mode: "insensitive" } },
+        { content: { contains: query, mode: "insensitive" } },
+      ],
+    },
+    orderBy: { publishedAt: "desc" },
+    take: limit,
+    include: {
+      author: { select: { id: true, name: true, image: true } },
+      category: { select: { id: true, name: true, slug: true } },
+    },
+  });
+}

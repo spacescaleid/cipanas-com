@@ -1,76 +1,70 @@
-import type { Metadata } from 'next'
-import { Inter, Playfair_Display } from 'next/font/google'
-import { Toaster } from 'react-hot-toast'
-import { SessionProvider } from '@/components/providers/SessionProvider'
-import { getSession } from '@/lib/auth-utils'
-import './globals.css'
+// src/app/layout.tsx
+import type { Metadata } from "next";
+import { Inter, Playfair_Display } from "next/font/google";
+import { Toaster } from "react-hot-toast";
 
-// Font untuk body text (sans-serif)
+import { SessionProvider } from "@/components/providers/SessionProvider";
+import { ThemeProvider } from "@/components/providers/ThemeProvider";
+import "./globals.css";
+
 const inter = Inter({
-  subsets: ['latin'],
-  variable: '--font-inter',
-  display: 'swap',
-})
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
+});
 
-// Font untuk judul artikel (serif editorial)
 const playfair = Playfair_Display({
-  subsets: ['latin'],
-  variable: '--font-playfair',
-  display: 'swap',
-})
+  subsets: ["latin"],
+  variable: "--font-playfair",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
-  title: {
-    default: 'Cipanas.com — Portal Berita Cipanas & Cianjur',
-    template: '%s | Cipanas.com',
-  },
+  title: "Cipanas.com — Portal Berita Cipanas",
   description:
-    'Portal berita terpercaya seputar Cipanas, Cianjur, dan sekitarnya. Menghadirkan berita terkini, wisata, ekonomi, pendidikan, dan budaya.',
-  keywords: ['cipanas', 'cianjur', 'berita cipanas', 'portal berita', 'wisata cipanas'],
-  authors: [{ name: 'Cipanas.com' }],
-  openGraph: {
-    type: 'website',
-    locale: 'id_ID',
-    url: process.env.NEXT_PUBLIC_APP_URL,
-    siteName: 'Cipanas.com',
-  },
-}
+    "Portal berita terkini seputar Cipanas: politik, ekonomi, olahraga, hiburan, dan gaya hidup.",
+};
 
-export default async function RootLayout({
+// Script inline untuk apply theme sebelum React hydrate (prevent flash)
+const themeScript = `
+  (function() {
+    try {
+      var stored = localStorage.getItem('cipanas-theme');
+      var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      var theme = stored || (prefersDark ? 'dark' : 'light');
+      if (theme === 'dark') document.documentElement.classList.add('dark');
+    } catch(e) {}
+  })();
+`;
+
+export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
-  const session = await getSession()
-
   return (
-    <html lang="id" suppressHydrationWarning>
-      <body
-        className={`${inter.variable} ${playfair.variable} font-sans antialiased bg-white text-readable-light dark:bg-slate-950 dark:text-readable-dark`}
-      >
-        <SessionProvider session={session}>
-          {children}
-          <Toaster
-            position="top-right"
-            toastOptions={{
-              duration: 3500,
-              style: {
-                background: '#1e293b',
-                color: '#fff',
-                borderRadius: '10px',
-                padding: '12px 16px',
-                fontSize: '14px',
-              },
-              success: {
-                iconTheme: { primary: '#22c55e', secondary: '#fff' },
-              },
-              error: {
-                iconTheme: { primary: '#ef4444', secondary: '#fff' },
-              },
-            }}
-          />
-        </SessionProvider>
+    <html
+      lang="id"
+      className={`${inter.variable} ${playfair.variable}`}
+      suppressHydrationWarning
+    >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
+      <body className="min-h-screen bg-white font-sans text-readable antialiased dark:bg-neutral-950 dark:text-neutral-100">
+        <ThemeProvider>
+          <SessionProvider>
+            {children}
+            <Toaster
+              position="top-right"
+              toastOptions={{
+                duration: 4000,
+                style: { fontSize: "14px" },
+              }}
+            />
+          </SessionProvider>
+        </ThemeProvider>
       </body>
     </html>
-  )
+  );
 }

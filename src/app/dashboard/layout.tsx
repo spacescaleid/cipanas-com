@@ -1,8 +1,14 @@
 // src/app/dashboard/layout.tsx
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { LayoutDashboard, PenSquare, FileText, User } from "lucide-react";
-
+import {
+  LayoutDashboard,
+  PenSquare,
+  FileText,
+  User,
+  TrendingUp,
+  Bell,
+} from "lucide-react";
 import { requireRole } from "@/lib/auth-utils";
 import { SignOutButton } from "@/components/auth/SignOutButton";
 
@@ -13,12 +19,17 @@ export default async function DashboardLayout({
 }) {
   const session = await requireRole(["CONTRIBUTOR", "ADMIN", "SUPER_ADMIN"]);
 
-  const navItems = [
-    { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
-    { href: "/dashboard/tulis", label: "Tulis Berita", icon: PenSquare },
-    { href: "/dashboard/artikel", label: "Artikel Saya", icon: FileText },
-    { href: "/dashboard/profil", label: "Profil", icon: User },
-  ];
+  // src/app/dashboard/layout.tsx
+// Ganti bagian navItems saja:
+
+const navItems = [
+  { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
+  { href: "/dashboard/tulis", label: "Tulis Berita", icon: PenSquare },
+  { href: "/dashboard/tulisan", label: "Tulisan Saya", icon: FileText },
+  { href: "/dashboard/statistik", label: "Statistik", icon: TrendingUp },
+  { href: "/dashboard/notifikasi", label: "Notifikasi", icon: Bell },
+  { href: "/dashboard/profil", label: "Profil", icon: User },
+];
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">

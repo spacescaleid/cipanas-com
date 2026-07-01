@@ -36,3 +36,70 @@
     background: rgb(71 85 105);
   }
 }
+/* === ARTICLE CONTENT TYPOGRAPHY === */
+
+.article-content h1,
+.article-content h2 {
+  @apply mb-4 mt-8 font-serif text-3xl font-bold leading-tight text-neutral-900 dark:text-white;
+}
+
+.article-content h2 {
+  @apply text-2xl;
+}
+
+.article-content h3 {
+  @apply mb-3 mt-6 font-serif text-xl font-bold text-neutral-900 dark:text-white;
+}
+
+.article-content h4 {
+  @apply mb-2 mt-5 font-serif text-lg font-bold text-neutral-900 dark:text-white;
+}
+
+.article-content p {
+  @apply mb-5 leading-[1.8];
+}
+
+.article-content a {
+  @apply text-brand-600 underline decoration-brand-300 underline-offset-4 transition hover:text-brand-700 hover:decoration-brand-600 dark:text-brand-400;
+}
+
+.article-content ul,
+.article-content ol {
+  @apply mb-5 ml-6 space-y-2;
+}
+
+.article-content ul {
+  @apply list-disc;
+}
+
+.article-content ol {
+  @apply list-decimal;
+}
+
+.article-content blockquote {
+  @apply my-6 border-l-4 border-brand-500 bg-brand-50 px-6 py-4 italic text-neutral-700 dark:bg-brand-900/20 dark:text-neutral-300;
+}
+
+.article-content img {
+  @apply my-6 h-auto w-full rounded-xl;
+}
+
+.article-content pre {
+  @apply my-6 overflow-x-auto rounded-lg bg-neutral-900 p-4 text-sm text-neutral-100 dark:bg-neutral-800;
+}
+
+.article-content code {
+  @apply rounded bg-neutral-100 px-1.5 py-0.5 font-mono text-sm text-brand-700 dark:bg-neutral-800 dark:text-brand-300;
+}
+
+.article-content pre code {
+  @apply bg-transparent p-0 text-inherit;
+}
+
+.article-content hr {
+  @apply my-8 border-neutral-200 dark:border-neutral-800;
+}
+
+.article-content strong {
+  @apply font-bold text-neutral-900 dark:text-white;
+}
