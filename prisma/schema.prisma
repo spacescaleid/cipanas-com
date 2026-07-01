@@ -1,0 +1,188 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────
+
+enum Role {
+  VISITOR
+  CONTRIBUTOR
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum ArticleStatus {
+  DRAFT
+  PENDING
+  REVISION
+  PUBLISHED
+  REJECTED
+}
+
+enum CommentStatus {
+  PENDING
+  APPROVED
+  SPAM
+}
+
+enum AdPosition {
+  HEADER
+  SIDEBAR
+  INLINE
+  FOOTER
+}
+
+enum AdOrderStatus {
+  PENDING_PAYMENT
+  PENDING_APPROVAL
+  ACTIVE
+  EXPIRED
+  REJECTED
+}
+
+// ─────────────────────────────────────────────
+// MODELS
+// ─────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(VISITOR)
+  image        String?
+  bio          String?
+  createdAt    DateTime @default(now())
+
+  // Relations
+  articles     Article[]
+  activityLogs ActivityLog[]
+
+  @@map("users")
+}
+
+model Category {
+  id       String    @id @default(cuid())
+  name     String    @unique
+  slug     String    @unique
+  articles Article[]
+
+  @@map("categories")
+}
+
+model Article {
+  id           String        @id @default(cuid())
+  authorId     String
+  title        String
+  slug         String        @unique
+  content      String        @db.Text
+  coverImage   String?
+  categoryId   String
+  status       ArticleStatus @default(DRAFT)
+  revisionNote String?
+  viewCount    Int           @default(0)
+  publishedAt  DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  // Relations
+  author   User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id])
+  comments Comment[]
+
+  @@index([slug])
+  @@index([status])
+  @@index([categoryId])
+  @@index([authorId])
+  @@map("articles")
+}
+
+model Comment {
+  id        String        @id @default(cuid())
+  articleId String
+  name      String
+  content   String
+  status    CommentStatus @default(PENDING)
+  createdAt DateTime      @default(now())
+
+  // Relations
+  article Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@index([articleId])
+  @@map("comments")
+}
+
+model AdSlot {
+  id         String     @id @default(cuid())
+  position   AdPosition
+  size       String     // e.g. "728x90", "300x250", "320x50"
+  pricePerDay Decimal   @db.Decimal(12, 2)
+
+  // Relations
+  orders AdOrder[]
+
+  @@map("ad_slots")
+}
+
+model AdOrder {
+  id             String        @id @default(cuid())
+  advertiserName String
+  email          String
+  slotId         String
+  mediaUrl       String
+  targetUrl      String
+  startDate      DateTime
+  endDate        DateTime
+  status         AdOrderStatus @default(PENDING_PAYMENT)
+  totalPrice     Decimal       @db.Decimal(12, 2)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  // Relations
+  slot     AdSlot    @relation(fields: [slotId], references: [id])
+  payments Payment[]
+
+  @@index([status])
+  @@index([slotId])
+  @@map("ad_orders")
+}
+
+model Payment {
+  id            String   @id @default(cuid())
+  adOrderId     String
+  amount        Decimal  @db.Decimal(12, 2)
+  method        String   // "bank_transfer", "qris", "virtual_account", etc.
+  gatewayStatus String   // raw status dari payment gateway
+  paymentRef    String?  // transaction ID dari gateway
+  createdAt     DateTime @default(now())
+
+  // Relations
+  adOrder AdOrder @relation(fields: [adOrderId], references: [id], onDelete: Cascade)
+
+  @@index([adOrderId])
+  @@map("payments")
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String   // "APPROVE_ARTICLE", "REJECT_ARTICLE", "CHANGE_ROLE", dll.
+  target    String   // ID atau deskripsi target aksi
+  createdAt DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("activity_logs")
+}
