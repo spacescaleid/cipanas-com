@@ -43,6 +43,7 @@ export function ProfileForm({ initialData }: Props) {
     },
   });
 
+  // eslint-disable-next-line react-hooks/incompatible-library
   const bioValue = watch("bio") ?? "";
 
   const uploadPhoto = async (file: File): Promise<string | null> => {

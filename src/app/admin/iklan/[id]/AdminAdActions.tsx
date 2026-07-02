@@ -1,7 +1,13 @@
 // src/app/admin/iklan/[id]/AdminAdActions.tsx
 "use client";
 
-import { useState, useActionState, useEffect, useTransition } from "react";
+import {
+  useState,
+  useActionState,
+  useEffect,
+  useTransition,
+  useRef,
+} from "react";
 import toast from "react-hot-toast";
 import {
   verifyPaymentAction,
@@ -13,14 +19,52 @@ import { buildUploadInviteMessage, buildWhatsAppLink } from "@/lib/ad-utils";
 import { CopyButton } from "@/components/ui/CopyButton";
 import type { AdOrderStatus } from "@/types/ad-order";
 
+interface VerifyResult {
+  uploadLink: string;
+  uploadTokenExpiresAt: Date;
+  waMessage: string;
+}
+
 interface AdminAdActionsProps {
   orderId: string;
   orderCode: string;
   status: AdOrderStatus;
-  advertiserName: string | null;   // ← nullable
-  whatsappNumber: string | null;   // ← nullable
+  advertiserName: string | null;
+  whatsappNumber: string | null;
   existingUploadToken?: string | null;
   existingTokenExpiry?: string | null;
+}
+
+// Helper: build initial verify result dari props (untuk lazy init state)
+function buildInitialVerifyResult(params: {
+  status: AdOrderStatus;
+  existingUploadToken?: string | null;
+  existingTokenExpiry?: string | null;
+  advertiserName: string;
+  orderCode: string;
+}): VerifyResult | null {
+  const { status, existingUploadToken, existingTokenExpiry, advertiserName, orderCode } = params;
+
+  if (typeof window === "undefined") return null;
+  if (status !== "AWAITING_CREATIVE" || !existingUploadToken || !existingTokenExpiry) {
+    return null;
+  }
+
+  const baseUrl = window.location.origin;
+  const uploadLink = `${baseUrl}/upload-iklan/${existingUploadToken}`;
+  const expiryDate = new Date(existingTokenExpiry);
+  const waMessage = buildUploadInviteMessage({
+    advertiserName,
+    orderCode,
+    uploadLink,
+    tokenExpiresAt: expiryDate,
+  });
+
+  return {
+    uploadLink,
+    uploadTokenExpiresAt: expiryDate,
+    waMessage,
+  };
 }
 
 export function AdminAdActions({
@@ -33,46 +77,23 @@ export function AdminAdActions({
   existingTokenExpiry,
 }: AdminAdActionsProps) {
   const [isPending, startTransition] = useTransition();
-  const [verifyResult, setVerifyResult] = useState<{
-    uploadLink: string;
-    uploadTokenExpiresAt: Date;
-    waMessage: string;
-  } | null>(null);
-
-  const [showRejectForm, setShowRejectForm] = useState(false);
 
   // Normalize nullable values ke string dengan fallback
   const safeAdvertiserName = advertiserName ?? "Pengiklan";
   const safeWhatsappNumber = whatsappNumber ?? "";
 
-  useEffect(() => {
-    if (
-      status === "AWAITING_CREATIVE" &&
-      existingUploadToken &&
-      existingTokenExpiry
-    ) {
-      const baseUrl = window.location.origin;
-      const uploadLink = `${baseUrl}/upload-iklan/${existingUploadToken}`;
-      const expiryDate = new Date(existingTokenExpiry);
-      const waMessage = buildUploadInviteMessage({
-        advertiserName: safeAdvertiserName,
-        orderCode,
-        uploadLink,
-        tokenExpiresAt: expiryDate,
-      });
-      setVerifyResult({
-        uploadLink,
-        uploadTokenExpiresAt: expiryDate,
-        waMessage,
-      });
-    }
-  }, [
-    status,
-    existingUploadToken,
-    existingTokenExpiry,
-    safeAdvertiserName,
-    orderCode,
-  ]);
+  // Lazy init verify result (tidak pakai useEffect + setState)
+  const [verifyResult, setVerifyResult] = useState<VerifyResult | null>(() =>
+    buildInitialVerifyResult({
+      status,
+      existingUploadToken,
+      existingTokenExpiry,
+      advertiserName: safeAdvertiserName,
+      orderCode,
+    })
+  );
+
+  const [showRejectForm, setShowRejectForm] = useState(false);
 
   // ─── Verifikasi Pembayaran ───────────────────────────────────────────
   const handleVerifyPayment = () => {
@@ -133,10 +154,20 @@ export function AdminAdActions({
     null
   );
 
+  // Track processed reject state — hindari re-process saat re-render
+  const processedRejectStateRef = useRef<typeof rejectState>(null);
+
   useEffect(() => {
+    // Skip kalau rejectState belum berubah dari sebelumnya
+    if (rejectState === processedRejectStateRef.current) return;
+    processedRejectStateRef.current = rejectState;
+
     if (rejectState?.success) {
       toast.success("Materi ditolak. Pengiklan bisa upload ulang.");
-      setShowRejectForm(false);
+      // Wrap setState di startTransition untuk hindari cascading render warning
+      startTransition(() => {
+        setShowRejectForm(false);
+      });
       window.location.reload();
     } else if (rejectState && !rejectState.success && rejectState.error) {
       toast.error(rejectState.error);

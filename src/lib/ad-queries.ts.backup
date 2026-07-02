@@ -159,3 +159,18 @@ export async function incrementAdClick(adOrderId: string) {
   });
 }
 
+// Tambahan di src/lib/ad-queries.ts (kalau belum ada)
+
+export async function incrementAdImpression(adOrderId: string) {
+  await prisma.adOrder.update({
+    where: { id: adOrderId },
+    data: { impressionCount: { increment: 1 } },
+  });
+}
+
+export async function incrementAdClick(adOrderId: string) {
+  await prisma.adOrder.update({
+    where: { id: adOrderId },
+    data: { clickCount: { increment: 1 } },
+  });
+}

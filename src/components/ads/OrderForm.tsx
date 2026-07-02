@@ -2,7 +2,7 @@
 "use client";
 
 import { useActionState, useEffect } from "react";
-import { useForm, Controller } from "react-hook-form";
+import { useForm, Controller, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import toast from "react-hot-toast";
 import {
@@ -45,7 +45,6 @@ export function OrderForm({ slots }: OrderFormProps) {
   const {
     register,
     control,
-    watch,
     formState: { errors },
   } = useForm<CreateAdOrderClientInput>({
     resolver: zodResolver(createAdOrderClientSchema),
@@ -59,9 +58,21 @@ export function OrderForm({ slots }: OrderFormProps) {
     },
   });
 
-  const selectedSlotId = watch("slotId");
-  const selectedDuration = watch("durationDays");
-  const selectedStartDate = watch("startDate");
+  // ✅ Ganti watch() dengan useWatch() untuk compatibility dengan React Compiler
+  const selectedSlotId = useWatch({
+    control,
+    name: "slotId",
+  });
+
+  const selectedDuration = useWatch({
+    control,
+    name: "durationDays",
+  });
+
+  const selectedStartDate = useWatch({
+    control,
+    name: "startDate",
+  });
 
   const selectedSlot = slots.find((s) => s.id === selectedSlotId);
   const estimatedPrice = selectedSlot

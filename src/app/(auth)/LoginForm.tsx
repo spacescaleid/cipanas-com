@@ -11,7 +11,7 @@ import { z } from "zod";
 import toast from "react-hot-toast";
 import { Loader2, Mail, Lock } from "lucide-react";
 
-import { getDefaultRouteForRole } from "@/lib/auth-helpers";
+import { getDefaultRouteForRole } from "@/lib/auth-utils";
 
 const loginSchema = z.object({
   email: z.string().email("Email tidak valid"),

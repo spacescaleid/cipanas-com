@@ -1,23 +1,29 @@
 // src/app/api/ads/[id]/impression/route.ts
+
 import { NextResponse } from "next/server";
+import { incrementAdImpression } from "@/lib/ad-queries";
 
-import { prisma } from "@/lib/prisma";
-
-type RouteContext = {
+interface RouteContext {
   params: Promise<{ id: string }>;
-};
+}
 
 /**
- * Record impression untuk iklan.
- * Dipanggil fire-and-forget dari client saat iklan terlihat di viewport.
+ * Endpoint fire-and-forget untuk tracking impression iklan.
+ * Dipanggil dari AdRotator.tsx via IntersectionObserver saat iklan
+ * benar-benar terlihat di viewport (≥50%).
+ *
+ * Selalu return { ok: true } — kalau increment gagal, kita log tapi
+ * jangan sampai bikin client dapat error (fire-and-forget pattern).
  */
 export async function POST(_request: Request, { params }: RouteContext) {
   const { id } = await params;
 
   try {
-    return NextResponse.json({ ok: true });
-  } catch {
-    // Ignore error — impression tracking tidak boleh block user
-    return NextResponse.json({ ok: false }, { status: 200 });
+    await incrementAdImpression(id);
+  } catch (err) {
+    // Fire-and-forget: log error tapi jangan expose ke client
+    console.error(`Failed to increment impression for ad ${id}:`, err);
   }
+
+  return NextResponse.json({ ok: true });
 }

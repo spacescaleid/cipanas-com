@@ -4,7 +4,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import Link from "next/link";
 import {
   User as UserIcon,
   Trash2,
@@ -132,7 +131,7 @@ export function UserManager({
     return false;
   };
 
-  const availableRoles = (target: User): Role[] => {
+  const availableRoles = (_target: User): Role[] => {
     if (currentUserRole === "SUPER_ADMIN") return ROLES;
     // ADMIN cuma bisa toggle VISITOR ↔ CONTRIBUTOR
     return ["VISITOR", "CONTRIBUTOR"];

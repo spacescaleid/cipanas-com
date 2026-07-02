@@ -170,7 +170,6 @@ export async function getRecentActivities(limit = 5) {
 
 // Tambahkan di src/lib/admin-queries.ts
 
-import type { Role } from "@prisma/client";
 
 /** List semua user dengan count artikel */
 export async function getAllUsers() {

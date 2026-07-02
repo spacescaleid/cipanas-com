@@ -11,7 +11,7 @@ export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma) as Adapter,
   session: {
     strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60,
+    maxAge: 30 * 24 * 60 * 60, // 30 hari
   },
   pages: {
     signIn: "/login",
@@ -24,63 +24,52 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        console.log("\n========== LOGIN ATTEMPT ==========");
-        console.log("Raw credentials:", JSON.stringify(credentials));
-
+        // 1. Validasi input dasar — return null tanpa log
         if (!credentials?.email || !credentials?.password) {
-          console.log("❌ Missing email or password");
           return null;
         }
 
-        const email = credentials.email.trim().toLowerCase();
-        const password = credentials.password;
+        try {
+          const email = credentials.email.trim().toLowerCase();
+          const password = credentials.password;
 
-        console.log("→ Email (normalized):", email);
-        console.log("→ Password length:", password.length);
-
-        const user = await prisma.user.findUnique({
-          where: { email },
-        });
-
-        if (!user) {
-          console.log("❌ USER NOT FOUND in database for email:", email);
-
-          // Debug: list all users
-          const allUsers = await prisma.user.findMany({
-            select: { email: true },
+          // 2. Cari user
+          const user = await prisma.user.findUnique({
+            where: { email },
           });
-          console.log("→ Users yang ada di DB:", allUsers.map((u) => u.email));
+
+          // 3. User tidak ada — return null tanpa expose (cegah user enumeration)
+          if (!user) {
+            return null;
+          }
+
+          // 4. Verify password
+          const passwordValid = await bcrypt.compare(
+            password,
+            user.passwordHash
+          );
+
+          if (!passwordValid) {
+            return null;
+          }
+
+          // 5. Sukses
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            image: user.image,
+            role: user.role,
+          };
+        } catch (err) {
+          // Log error TAK TERDUGA (DB down, dsb) — bukan validation failure
+          // Jangan log email/password/hash
+          console.error(
+            "Auth error (unexpected):",
+            err instanceof Error ? err.message : "unknown error"
+          );
           return null;
         }
-
-        console.log("✓ User found:", user.email);
-        console.log("✓ Role:", user.role);
-        console.log("✓ passwordHash (first 30 chars):", user.passwordHash.substring(0, 30));
-        console.log("✓ passwordHash length:", user.passwordHash.length);
-
-        const passwordValid = await bcrypt.compare(password, user.passwordHash);
-        console.log("→ bcrypt.compare result:", passwordValid);
-
-        if (!passwordValid) {
-          console.log("❌ PASSWORD MISMATCH");
-
-          // Debug: coba hash password yang diketik & bandingkan
-          const testHash = await bcrypt.hash(password, 12);
-          console.log("→ Hash baru dari password yg diketik:", testHash.substring(0, 30));
-          console.log("→ (hash beda tiap generate itu normal karena salt)");
-          return null;
-        }
-
-        console.log("✅ LOGIN SUCCESS");
-        console.log("===================================\n");
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          image: user.image,
-          role: user.role,
-        };
       },
     }),
   ],
@@ -101,5 +90,6 @@ export const authOptions: NextAuthOptions = {
     },
   },
   secret: process.env.NEXTAUTH_SECRET,
-  debug: true,
+  // debug: false di production. Ganti ke true HANYA saat debug local, jangan di-commit true.
+  debug: process.env.NODE_ENV === "development" && process.env.NEXTAUTH_DEBUG === "true",
 };

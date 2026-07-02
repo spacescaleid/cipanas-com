@@ -3,9 +3,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AdSlotDisplay } from "@/components/ads/AdSlotDisplay";
-import { ArticleCard } from "@/components/articles/ArticleCard";
-import { FeaturedArticle } from "@/components/articles/FeaturedArticle";
-import { CategoryPill } from "@/components/articles/CategoryPill";
+import { ArticleCard } from "@/components/article/ArticleCard";
+import { FeaturedArticle } from "@/components/article/FeaturedArticle";
+import { CategoryPill } from "@/components/article/CategoryPill";
 import prisma from "@/lib/prisma";
 import { serializePrisma } from "@/lib/serialize";
 import { ArrowRight } from "lucide-react";

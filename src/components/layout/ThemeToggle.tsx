@@ -1,19 +1,31 @@
 // src/components/layout/ThemeToggle.tsx
 "use client";
 
+import { useSyncExternalStore } from "react";
 import { Moon, Sun } from "lucide-react";
 import { useTheme } from "@/components/providers/ThemeProvider";
-import { useEffect, useState } from "react";
+
+// Subscribe function untuk sync external store (window mounted state)
+function subscribe() {
+  // No-op — kita hanya perlu snapshot yang stabil
+  return () => {};
+}
+
+// Snapshot untuk client (true = sudah mounted)
+function getSnapshot() {
+  return true;
+}
+
+// Snapshot untuk server (false = belum mounted)
+function getServerSnapshot() {
+  return false;
+}
 
 export function ThemeToggle() {
   const { theme, toggleTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  // Hindari hydration mismatch
+  // Hindari hydration mismatch — render placeholder di server
   if (!mounted) {
     return <div className="h-8 w-8" />;
   }

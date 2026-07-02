@@ -1,5 +1,6 @@
 // src/app/(public)/video/page.tsx
 import type { Metadata } from "next";
+import Image from "next/image";
 import { PlayCircle } from "lucide-react";
 
 export const metadata: Metadata = {
@@ -75,10 +76,12 @@ export default function VideoPage() {
               className="group cursor-pointer overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-card transition hover:shadow-card-hover dark:border-neutral-800 dark:bg-neutral-900"
             >
               <div className="relative aspect-video overflow-hidden bg-neutral-100 dark:bg-neutral-800">
-                <img
+                <Image
                   src={video.thumbnail}
                   alt={video.title}
-                  className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                  fill
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                  className="object-cover transition duration-500 group-hover:scale-105"
                 />
                 <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition group-hover:opacity-100">
                   <PlayCircle className="h-16 w-16 text-white" />

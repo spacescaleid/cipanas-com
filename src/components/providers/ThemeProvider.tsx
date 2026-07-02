@@ -1,7 +1,7 @@
 // src/components/providers/ThemeProvider.tsx
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useRef } from "react";
 
 type Theme = "light" | "dark";
 
@@ -18,9 +18,8 @@ interface ThemeProviderProps {
   initialTheme?: Theme;
 }
 
-// Helper: set cookie theme (client-side)
+// Helper: set cookie theme
 function setThemeCookie(theme: Theme) {
-  // Cookie berlaku 1 tahun
   const oneYear = 60 * 60 * 24 * 365;
   document.cookie = `theme=${theme}; path=/; max-age=${oneYear}; SameSite=Lax`;
 }
@@ -34,39 +33,72 @@ function applyThemeClass(theme: Theme) {
   }
 }
 
+// Helper: detect initial theme dari cookie atau system preference (client-side only)
+function detectInitialTheme(fallback: Theme): Theme {
+  if (typeof window === "undefined") return fallback;
+
+  // Cek cookie
+  const cookieMatch = document.cookie
+    .split("; ")
+    .find((c) => c.startsWith("theme="));
+
+  if (cookieMatch) {
+    const value = cookieMatch.split("=")[1] as Theme;
+    if (value === "dark" || value === "light") return value;
+  }
+
+  // Fallback ke system preference
+  const systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  return systemDark ? "dark" : "light";
+}
+
 export function ThemeProvider({
   children,
   initialTheme = "light",
 }: ThemeProviderProps) {
-  const [theme, setThemeState] = useState<Theme>(initialTheme);
+  // Lazy init: detect theme sekali saat initial render (tidak trigger effect)
+  const [theme, setThemeState] = useState<Theme>(() => {
+    // Di server: pakai initialTheme dari props
+    if (typeof window === "undefined") return initialTheme;
+    // Di client: detect dari cookie/system
+    return detectInitialTheme(initialTheme);
+  });
 
-  // Sync dengan sistem theme di first mount (jika belum ada cookie)
+  // Ref untuk track apakah sudah first sync (hindari sync ulang saat re-render)
+  const hasSyncedRef = useRef(false);
+
+  // First-mount sync: apply theme class + set cookie kalau belum ada
+  // Effect ini tidak setState — hanya side effect DOM
   useEffect(() => {
+    if (hasSyncedRef.current) return;
+    hasSyncedRef.current = true;
+
+    applyThemeClass(theme);
+
+    // Set cookie kalau belum ada
     const hasCookie = document.cookie
       .split("; ")
       .some((c) => c.startsWith("theme="));
 
     if (!hasCookie) {
-      // Belum ada preferensi user — pakai sistem
-      const systemDark = window.matchMedia(
-        "(prefers-color-scheme: dark)"
-      ).matches;
-      const detected: Theme = systemDark ? "dark" : "light";
-      setThemeState(detected);
-      applyThemeClass(detected);
-      setThemeCookie(detected);
+      setThemeCookie(theme);
     }
-  }, []);
+  }, [theme]);
 
-  const setTheme = (t: Theme) => {
+  const setTheme = useCallback((t: Theme) => {
     setThemeState(t);
     applyThemeClass(t);
     setThemeCookie(t);
-  };
+  }, []);
 
-  const toggleTheme = () => {
-    setTheme(theme === "light" ? "dark" : "light");
-  };
+  const toggleTheme = useCallback(() => {
+    setThemeState((current) => {
+      const next = current === "light" ? "dark" : "light";
+      applyThemeClass(next);
+      setThemeCookie(next);
+      return next;
+    });
+  }, []);
 
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
