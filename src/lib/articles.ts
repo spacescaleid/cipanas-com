@@ -48,7 +48,7 @@ export async function getArticlesByCategory(categorySlug: string, limit = 6) {
     orderBy: { publishedAt: "desc" },
     take: limit,
     include: {
-      author: { select: { id: true, name: true } },
+      author: { select: { id: true, name: true, image: true } },
       category: { select: { id: true, name: true, slug: true } },
     },
   });

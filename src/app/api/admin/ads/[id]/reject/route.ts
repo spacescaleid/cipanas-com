@@ -50,9 +50,9 @@ export async function POST(request: Request, { params }: RouteContext) {
       );
     }
 
-    if (existing.status !== "PENDING_APPROVAL") {
+    if (existing.status !== "PENDING_REVIEW") {
       return NextResponse.json(
-        { error: "Hanya order PENDING_APPROVAL yang bisa ditolak" },
+        { error: "Hanya order PENDING_REVIEW yang bisa ditolak" },
         { status: 400 }
       );
     }

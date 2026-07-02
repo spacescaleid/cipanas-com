@@ -1,5 +1,11 @@
-// src/app/admin/layout.tsx
-// Ganti bagian navItems:
+import {
+  LayoutDashboard,
+  Newspaper,
+  FolderTree,
+  Users,
+  Megaphone,
+  Activity,
+} from "lucide-react";
 
 const navItems = [
   { href: "/admin", label: "Overview", icon: LayoutDashboard },

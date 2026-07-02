@@ -4,8 +4,7 @@ import Link from 'next/link'
 import { useState } from 'react'
 import { Newspaper, Menu, X, Search } from 'lucide-react'
 import { useSession } from 'next-auth/react'
-import UserMenu from './UserMenu'
-import { cn } from '@/lib/utils'
+import { UserMenu } from './UserMenu'
 
 const navLinks = [
   { label: 'Beranda', href: '/' },
@@ -64,7 +63,7 @@ export default function Navbar() {
             {isLoading ? (
               <div className="w-9 h-9 rounded-full bg-slate-200 dark:bg-slate-800 animate-pulse" />
             ) : session?.user ? (
-              <UserMenu user={session.user} />
+              <UserMenu />
             ) : (
               <Link
                 href="/login"

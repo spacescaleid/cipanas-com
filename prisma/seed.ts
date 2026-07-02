@@ -444,7 +444,7 @@ async function main() {
       targetUrl: "https://cipanasgrand.example.com",
       startDate: inFuture(2),
       endDate: inFuture(16),
-      status: AdOrderStatus.PENDING_APPROVAL,
+      status: AdOrderStatus.AWAITING_CREATIVE,
       totalPrice: 100000 * 14, // 14 hari
     },
   });

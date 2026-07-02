@@ -39,7 +39,7 @@ export function AdApprovalActions({ orderId, orderStatus }: Props) {
     );
   }
 
-  if (orderStatus !== "PENDING_APPROVAL") {
+  if (orderStatus !== "PENDING_REVIEW") {
     return (
       <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-6 dark:border-neutral-800 dark:bg-neutral-900">
         <p className="text-sm text-neutral-600 dark:text-neutral-400">
@@ -66,7 +66,7 @@ export function AdApprovalActions({ orderId, orderStatus }: Props) {
       }
       toast.success("Iklan disetujui dan sekarang aktif");
       router.refresh();
-      router.push("/admin/iklan?status=PENDING_APPROVAL");
+      router.push("/admin/iklan?status=PENDING_REVIEW");
     } catch (error) {
       console.error(error);
       toast.error("Terjadi kesalahan");
@@ -94,7 +94,7 @@ export function AdApprovalActions({ orderId, orderStatus }: Props) {
       }
       toast.success("Iklan ditolak");
       router.refresh();
-      router.push("/admin/iklan?status=PENDING_APPROVAL");
+      router.push("/admin/iklan?status=PENDING_REVIEW");
     } catch (error) {
       console.error(error);
       toast.error("Terjadi kesalahan");

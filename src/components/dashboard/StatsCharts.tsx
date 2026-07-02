@@ -146,7 +146,7 @@ export function StatsCharts({ monthly, byCategory }: Props) {
                   cx="50%"
                   cy="50%"
                   outerRadius={90}
-                  label={(entry) => `${entry.name} (${entry.views})`}
+                  label={(entry: { name?: string; value?: number }) => `${entry.name ?? ""} (${entry.value ?? 0})`}
                   labelLine={false}
                 >
                   {byCategory.map((_, index) => (

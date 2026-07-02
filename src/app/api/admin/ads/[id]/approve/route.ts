@@ -30,9 +30,9 @@ export async function POST(_request: Request, { params }: RouteContext) {
       );
     }
 
-    if (existing.status !== "PENDING_APPROVAL") {
+    if (existing.status !== "PENDING_PAYMENT") {
       return NextResponse.json(
-        { error: "Hanya order PENDING_APPROVAL yang bisa disetujui" },
+        { error: "Hanya order PENDING_PAYMENT yang bisa disetujui" },
         { status: 400 }
       );
     }

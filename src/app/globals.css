@@ -103,3 +103,14 @@
 .article-content strong {
   @apply font-bold text-neutral-900 dark:text-white;
 }
+/* src/app/globals.css — TAMBAH di akhir file */
+
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}

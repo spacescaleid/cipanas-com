@@ -17,6 +17,8 @@ interface AdOrderItem {
   endDate: Date;
   status: AdOrderStatus;
   totalPrice: number;
+  impressionCount: number;
+  clickCount: number;
   slot: {
     position: AdPosition;
     size: string;
@@ -86,6 +88,13 @@ export function AdOrderList({ orders }: Props) {
               <span className="font-semibold text-neutral-900 dark:text-white">
                 {formatRupiah(Number(order.totalPrice))}
               </span>
+              {order.status === "ACTIVE" && (
+                <>
+                  <span>•</span>
+                  <span>👁 {order.impressionCount.toLocaleString("id-ID")}</span>
+                  <span>🖱 {order.clickCount.toLocaleString("id-ID")}</span>
+                </>
+              )}
             </div>
           </div>
         </Link>

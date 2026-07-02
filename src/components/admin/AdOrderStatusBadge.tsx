@@ -13,10 +13,15 @@ const config: Record<AdOrderStatus, { label: string; className: string }> = {
     className:
       "bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300",
   },
-  PENDING_APPROVAL: {
-    label: "Menunggu Approval",
+  AWAITING_CREATIVE: {
+    label: "Menunggu Upload Materi",
     className:
       "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
+  },
+  PENDING_REVIEW: {
+    label: "Menunggu Review",
+    className:
+      "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300",
   },
   ACTIVE: {
     label: "Aktif",

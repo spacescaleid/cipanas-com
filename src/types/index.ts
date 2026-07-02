@@ -2,7 +2,6 @@ import type {
   User,
   Article,
   Category,
-  Tag,
   Comment,
   AdOrder,
   AdSlot,
@@ -10,9 +9,23 @@ import type {
   ActivityLog,
   Role,
   ArticleStatus,
-  AdStatus,
-  PaymentStatus,
 } from '@prisma/client'
+
+export type Tag = {
+  id: string
+  nama: string
+  slug: string
+}
+
+export type AdStatus =
+  | 'PENDING_PAYMENT'
+  | 'AWAITING_CREATIVE'
+  | 'PENDING_REVIEW'
+  | 'ACTIVE'
+  | 'EXPIRED'
+  | 'REJECTED'
+
+export type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED'
 
 // ═══════════════════════════════════════════════════════════
 // RE-EXPORT PRISMA TYPES & ENUMS
@@ -22,7 +35,6 @@ export type {
   User,
   Article,
   Category,
-  Tag,
   Comment,
   AdOrder,
   AdSlot,
@@ -30,8 +42,6 @@ export type {
   ActivityLog,
   Role,
   ArticleStatus,
-  AdStatus,
-  PaymentStatus,
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -57,7 +67,12 @@ export type SessionUser = {
 /**
  * User untuk ditampilkan di kartu penulis artikel
  */
-export type AuthorInfo = Pick<User, 'id' | 'nama' | 'foto' | 'bio'>
+export type AuthorInfo = {
+  id: string
+  nama: string
+  foto?: string | null
+  bio?: string | null
+}
 
 /**
  * User dengan statistik (untuk halaman kelola pengguna)
@@ -78,7 +93,12 @@ export type UserWithStats = SafeUser & {
  */
 export type ArticleWithRelations = Article & {
   user: AuthorInfo
-  kategori: Category
+  kategori: {
+    id: string
+    nama: string
+    slug: string
+    warna?: string | null
+  }
   tags: {
     tag: Pick<Tag, 'id' | 'nama' | 'slug'>
   }[]
@@ -90,31 +110,45 @@ export type ArticleWithRelations = Article & {
 /**
  * Artikel untuk kartu di listing (data minimal)
  */
-export type ArticleCard = Pick<
-  Article,
-  | 'id'
-  | 'judul'
-  | 'slug'
-  | 'ringkasan'
-  | 'gambarUtama'
-  | 'viewCount'
-  | 'readTime'
-  | 'publishedAt'
-  | 'isHeadline'
-  | 'status'
-> & {
-  kategori: Pick<Category, 'id' | 'nama' | 'slug' | 'warna'>
-  user: Pick<User, 'id' | 'nama' | 'foto'>
+export type ArticleCard = {
+  id: string
+  judul: string
+  slug: string
+  ringkasan?: string | null
+  gambarUtama?: string | null
+  viewCount: number
+  readTime?: number | null
+  publishedAt?: Date | null
+  isHeadline?: boolean | null
+  status: ArticleStatus
+  kategori: {
+    id: string
+    nama: string
+    slug: string
+    warna?: string | null
+  }
+  user: {
+    id: string
+    nama: string
+    foto?: string | null
+  }
 }
 
 /**
  * Artikel untuk widget "Terpopuler" (data super minimal)
  */
-export type ArticlePopular = Pick<
-  Article,
-  'id' | 'judul' | 'slug' | 'gambarUtama' | 'viewCount' | 'publishedAt'
-> & {
-  kategori: Pick<Category, 'nama' | 'slug' | 'warna'>
+export type ArticlePopular = {
+  id: string
+  judul: string
+  slug: string
+  gambarUtama?: string | null
+  viewCount: number
+  publishedAt?: Date | null
+  kategori: {
+    nama: string
+    slug: string
+    warna?: string | null
+  }
 }
 
 /**
@@ -141,19 +175,21 @@ export type ArticleInput = {
 /**
  * Data artikel di dashboard kontributor (tabel "tulisan saya")
  */
-export type ArticleForDashboard = Pick<
-  Article,
-  | 'id'
-  | 'judul'
-  | 'slug'
-  | 'status'
-  | 'viewCount'
-  | 'catatanRevisi'
-  | 'publishedAt'
-  | 'createdAt'
-  | 'updatedAt'
-> & {
-  kategori: Pick<Category, 'nama' | 'slug' | 'warna'>
+export type ArticleForDashboard = {
+  id: string
+  judul: string
+  slug: string
+  status: ArticleStatus
+  viewCount: number
+  catatanRevisi?: string | null
+  publishedAt?: Date | null
+  createdAt: Date
+  updatedAt: Date
+  kategori: {
+    nama: string
+    slug: string
+    warna?: string | null
+  }
 }
 
 /**
@@ -207,10 +243,12 @@ export type TagWithCount = Tag & {
 /**
  * Komentar untuk ditampilkan (tanpa email)
  */
-export type CommentPublic = Pick<
-  Comment,
-  'id' | 'nama' | 'isi' | 'createdAt'
->
+export type CommentPublic = {
+  id: string
+  nama: string
+  isi: string
+  createdAt: Date
+}
 
 /**
  * Input komentar dari user
@@ -251,7 +289,7 @@ export type AdOrderForAdmin = AdOrder & {
   slot: AdSlot
   payment: Pick<
     Payment,
-    'id' | 'jumlah' | 'metode' | 'statusGateway' | 'paidAt' | 'paymentRef'
+    'id' | 'amount' | 'method' | 'gatewayStatus' | 'createdAt' | 'paymentRef'
   > | null
 }
 
@@ -331,7 +369,7 @@ export type PaymentWebhookPayload = {
  * Activity log dengan info user
  */
 export type ActivityLogWithUser = ActivityLog & {
-  user: Pick<User, 'id' | 'nama' | 'email' | 'role'>
+  user: Pick<User, 'id' | 'name' | 'email' | 'role'>
 }
 
 /**
@@ -597,11 +635,10 @@ export type AdSize = (typeof AD_SIZES)[keyof typeof AD_SIZES]
  */
 export const ARTICLE_STATUS_LABEL: Record<ArticleStatus, string> = {
   DRAFT: 'Draft',
-  PENDING_REVIEW: 'Menunggu Review',
+  PENDING: 'Menunggu Review',
   REVISION: 'Perlu Revisi',
   PUBLISHED: 'Tayang',
   REJECTED: 'Ditolak',
-  UNPUBLISHED: 'Dicabut',
 }
 
 /**
@@ -609,11 +646,10 @@ export const ARTICLE_STATUS_LABEL: Record<ArticleStatus, string> = {
  */
 export const ARTICLE_STATUS_COLOR: Record<ArticleStatus, string> = {
   DRAFT: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
-  PENDING_REVIEW: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300',
+  PENDING: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300',
   REVISION: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300',
   PUBLISHED: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
   REJECTED: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
-  UNPUBLISHED: 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-400',
 }
 
 /**
@@ -621,11 +657,11 @@ export const ARTICLE_STATUS_COLOR: Record<ArticleStatus, string> = {
  */
 export const AD_STATUS_LABEL: Record<AdStatus, string> = {
   PENDING_PAYMENT: 'Menunggu Pembayaran',
-  PENDING_APPROVAL: 'Menunggu Approval',
+  AWAITING_CREATIVE: 'Menunggu Upload Materi',
+  PENDING_REVIEW: 'Menunggu Review Admin',
   ACTIVE: 'Aktif',
   EXPIRED: 'Kedaluwarsa',
   REJECTED: 'Ditolak',
-  CANCELLED: 'Dibatalkan',
 }
 
 /**
@@ -633,11 +669,11 @@ export const AD_STATUS_LABEL: Record<AdStatus, string> = {
  */
 export const AD_STATUS_COLOR: Record<AdStatus, string> = {
   PENDING_PAYMENT: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300',
-  PENDING_APPROVAL: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
+  AWAITING_CREATIVE: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
+  PENDING_REVIEW: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300',
   ACTIVE: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
   EXPIRED: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
   REJECTED: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
-  CANCELLED: 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-400',
 }
 
 /**

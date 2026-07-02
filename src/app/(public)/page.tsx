@@ -1,149 +1,234 @@
 // src/app/(public)/page.tsx
-import { Suspense } from "react";
+
+import type { Metadata } from "next";
 import Link from "next/link";
+import { AdSlotDisplay } from "@/components/ads/AdSlotDisplay";
+import { ArticleCard } from "@/components/articles/ArticleCard";
+import { FeaturedArticle } from "@/components/articles/FeaturedArticle";
+import { CategoryPill } from "@/components/articles/CategoryPill";
+import prisma from "@/lib/prisma";
+import { serializePrisma } from "@/lib/serialize";
 import { ArrowRight } from "lucide-react";
 
-import {
-  getHeadlineArticle,
-  getLatestArticles,
-  getAllCategories,
-  getArticlesByCategory,
-} from "@/lib/articles";
-import { ArticleCard } from "@/components/article/ArticleCard";
-import { ArticleCardLarge } from "@/components/article/ArticleCardLarge";
-import { PopularSidebar } from "@/components/article/PopularSidebar";
-import { AdSlotDisplay } from "@/components/ads/AdSlotDisplay";
+export const metadata: Metadata = {
+  title: "Cipanas.com — Portal Berita Cipanas",
+  description:
+    "Portal berita terkini seputar Cipanas dan sekitarnya. Informasi terpercaya untuk warga Cipanas.",
+};
 
-export const revalidate = 60;
+export const revalidate = 300;
 
-export default async function HomePage() {
-  const [headline, latest, categories] = await Promise.all([
-    getHeadlineArticle(),
-    getLatestArticles(7),
-    getAllCategories(),
+async function getHomepageData() {
+  const [featuredRaw, latestRaw, categoriesRaw] = await Promise.all([
+    prisma.article.findFirst({
+      where: { status: "PUBLISHED" },
+      include: {
+        author: { select: { name: true } },
+        category: { select: { name: true, slug: true } },
+      },
+      orderBy: [{ publishedAt: "desc" }],
+    }),
+
+    prisma.article.findMany({
+      where: { status: "PUBLISHED" },
+      include: {
+        author: { select: { name: true } },
+        category: { select: { name: true, slug: true } },
+      },
+      orderBy: { publishedAt: "desc" },
+      take: 13,
+    }),
+
+    prisma.category.findMany({
+      include: {
+        _count: {
+          select: {
+            articles: {
+              where: { status: "PUBLISHED" },
+            },
+          },
+        },
+      },
+      orderBy: { name: "asc" },
+    }),
   ]);
 
-  const secondaryArticles = latest.slice(1, 5);
-  const olderArticles = latest.slice(5);
+  const featured = featuredRaw ? serializePrisma(featuredRaw) : null;
+  const latest = serializePrisma(
+    latestRaw.filter((a) => a.id !== featuredRaw?.id).slice(0, 12)
+  );
+  const categories = categoriesRaw.filter((c) => c._count.articles > 0);
+
+  return { featured, latest, categories };
+}
+
+export default async function HomePage() {
+  const { featured, latest, categories } = await getHomepageData();
+
+  const mainArticles = latest.slice(0, 6);
+  const secondaryArticles = latest.slice(6, 12);
 
   return (
-    <div className="animate-fade-in">
-      <div className="mx-auto max-w-7xl px-4 py-6 md:py-8">
-        {/* HERO */}
-        <section className="grid gap-6 lg:grid-cols-3">
-          <div className="lg:col-span-2">
-            {headline && <ArticleCardLarge article={headline} />}
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
-            {secondaryArticles.slice(0, 2).map((article) => (
-              <ArticleCard key={article.id} article={article} />
-            ))}
-          </div>
-        </section>
-
-        {/* HEADER AD */}
-        <section className="mt-8">
-          <Suspense
-            fallback={
-              <div className="h-24 animate-pulse rounded-xl bg-neutral-100 dark:bg-neutral-800" />
-            }
-          >
-            <AdSlotDisplay position="HEADER" />
-          </Suspense>
-        </section>
-
-        {/* MAIN GRID */}
-        <section className="mt-12 grid gap-8 lg:grid-cols-3">
-          <div className="lg:col-span-2">
-            <div className="mb-5 flex items-end justify-between border-b border-neutral-200 pb-3 dark:border-neutral-800">
-              <h2 className="font-serif text-2xl font-bold text-neutral-900 dark:text-white">
-                Berita Terbaru
-              </h2>
-            </div>
-
-            <div className="grid gap-6 sm:grid-cols-2">
-              {olderArticles.map((article) => (
-                <ArticleCard key={article.id} article={article} />
-              ))}
-              {secondaryArticles.slice(2).map((article) => (
-                <ArticleCard key={article.id} article={article} />
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-6">
-            <Suspense
-              fallback={
-                <div className="h-96 animate-pulse rounded-xl bg-neutral-100 dark:bg-neutral-800" />
-              }
-            >
-              <PopularSidebar />
-            </Suspense>
-
-            <Suspense
-              fallback={
-                <div className="h-64 animate-pulse rounded-xl bg-neutral-100 dark:bg-neutral-800" />
-              }
-            >
-              <AdSlotDisplay position="SIDEBAR" />
-            </Suspense>
-          </div>
-        </section>
-
-        {/* SECTIONS PER KATEGORI */}
-        {categories.slice(0, 3).map((cat) => (
-          <CategorySection
-            key={cat.id}
-            categorySlug={cat.slug}
-            categoryName={cat.name}
-          />
-        ))}
-
-        {/* FOOTER AD */}
-        <section className="mt-12">
-          <Suspense
-            fallback={
-              <div className="h-20 animate-pulse rounded-xl bg-neutral-100 dark:bg-neutral-800" />
-            }
-          >
-            <AdSlotDisplay position="FOOTER" />
-          </Suspense>
-        </section>
+    <main className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
+      {/* HEADER AD SLOT */}
+      <div className="border-b border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
+        <div className="mx-auto max-w-7xl px-4 py-4">
+          <AdSlotDisplay position="HEADER" />
+        </div>
       </div>
-    </div>
+
+      {/* KATEGORI CHIPS */}
+      {categories.length > 0 && (
+        <div className="border-b border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
+          <div className="mx-auto max-w-7xl px-4 py-3">
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
+              <span className="shrink-0 text-xs font-medium uppercase tracking-wider text-neutral-500">
+                Kategori:
+              </span>
+              {categories.map((cat) => (
+                <CategoryPill
+                  key={cat.id}
+                  name={cat.name}
+                  slug={cat.slug}
+                  count={cat._count.articles}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MAIN CONTENT */}
+      <div className="mx-auto max-w-7xl px-4 py-8">
+        {featured && (
+          <section className="mb-10">
+            <FeaturedArticle article={featured} />
+          </section>
+        )}
+
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_320px]">
+          {/* MAIN COLUMN */}
+          <div className="min-w-0">
+            {/* Section: Berita Terbaru */}
+            <section className="mb-10">
+              <SectionHeader
+                title="Berita Terbaru"
+                description="Update terkini seputar Cipanas"
+              />
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                {mainArticles.map((article) => (
+                  <ArticleCard key={article.id} article={article} />
+                ))}
+              </div>
+            </section>
+
+            {/* Inline Ad */}
+            <div className="my-10 rounded-xl border border-dashed border-neutral-300 bg-white p-4 dark:border-neutral-700 dark:bg-neutral-900">
+              <p className="mb-3 text-center text-xs uppercase tracking-wider text-neutral-400">
+                Iklan
+              </p>
+              <AdSlotDisplay position="INLINE" />
+            </div>
+
+            {/* Section: Berita Lainnya */}
+            {secondaryArticles.length > 0 && (
+              <section>
+                <SectionHeader
+                  title="Berita Lainnya"
+                  description="Artikel menarik lainnya"
+                />
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                  {secondaryArticles.map((article) => (
+                    <ArticleCard key={article.id} article={article} />
+                  ))}
+                </div>
+              </section>
+            )}
+          </div>
+
+          {/* SIDEBAR */}
+          <aside className="lg:sticky lg:top-4 lg:self-start">
+            <div className="space-y-6">
+              {/* Sidebar Ad */}
+              <div className="rounded-xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+                <p className="mb-3 text-center text-xs uppercase tracking-wider text-neutral-400">
+                  Iklan
+                </p>
+                <AdSlotDisplay position="SIDEBAR" />
+              </div>
+
+              {/* Widget: Kategori */}
+              {categories.length > 0 && (
+                <div className="rounded-xl border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
+                  <h3 className="mb-3 font-serif text-lg font-bold text-neutral-900 dark:text-white">
+                    Jelajahi Kategori
+                  </h3>
+                  <ul className="space-y-2">
+                    {categories.slice(0, 8).map((cat) => (
+                      <li key={cat.id}>
+                        <Link
+                          href={`/kategori/${cat.slug}`}
+                          className="flex items-center justify-between rounded-lg px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-50 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                        >
+                          <span>{cat.name}</span>
+                          <span className="text-xs text-neutral-500">
+                            {cat._count.articles}
+                          </span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Widget: Pasang Iklan CTA */}
+              <div className="rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 p-6 text-white">
+                <h3 className="mb-2 font-serif text-lg font-bold">
+                  Pasang Iklan Anda
+                </h3>
+                <p className="mb-4 text-sm text-blue-100">
+                  Jangkau ribuan pembaca Cipanas.com setiap harinya.
+                </p>
+                <Link
+                  href="/pasang-iklan"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-blue-600 hover:bg-blue-50"
+                >
+                  Mulai Sekarang
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </div>
+
+      {/* FOOTER AD SLOT */}
+      <div className="border-t border-neutral-200 bg-white py-6 dark:border-neutral-800 dark:bg-neutral-900">
+        <div className="mx-auto max-w-7xl px-4">
+          <AdSlotDisplay position="FOOTER" />
+        </div>
+      </div>
+    </main>
   );
 }
 
-async function CategorySection({
-  categorySlug,
-  categoryName,
+function SectionHeader({
+  title,
+  description,
 }: {
-  categorySlug: string;
-  categoryName: string;
+  title: string;
+  description?: string;
 }) {
-  const articles = await getArticlesByCategory(categorySlug, 3);
-
-  if (articles.length === 0) return null;
-
   return (
-    <section className="mt-12 animate-slide-up">
-      <div className="mb-5 flex items-end justify-between border-b border-neutral-200 pb-3 dark:border-neutral-800">
+    <div className="mb-5 flex items-end justify-between border-b-2 border-neutral-900 pb-2 dark:border-white">
+      <div>
         <h2 className="font-serif text-2xl font-bold text-neutral-900 dark:text-white">
-          {categoryName}
+          {title}
         </h2>
-        <Link
-          href={`/kategori/${categorySlug}`}
-          className="flex items-center gap-1 text-sm font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400"
-        >
-          Lihat semua <ArrowRight className="h-3 w-3" />
-        </Link>
+        {description && (
+          <p className="mt-0.5 text-sm text-neutral-500">{description}</p>
+        )}
       </div>
-
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {articles.map((article) => (
-          <ArticleCard key={article.id} article={article} />
-        ))}
-      </div>
-    </section>
+    </div>
   );
 }

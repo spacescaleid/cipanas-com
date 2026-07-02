@@ -74,7 +74,7 @@ export async function POST(request: Request, { params }: RouteContext) {
       }),
       prisma.adOrder.update({
         where: { id: order.id },
-        data: { status: "PENDING_APPROVAL" },
+        data: { status: "AWAITING_CREATIVE" },
       }),
     ]);
 

@@ -1,0 +1,206 @@
+// src/lib/ad-schemas.ts
+
+import { z } from "zod";
+
+// ═══════════════════════════════════════════════════════════════
+// CLIENT-SIDE SCHEMA (untuk react-hook-form)
+// ═══════════════════════════════════════════════════════════════
+
+export const createAdOrderClientSchema = z.object({
+  advertiserName: z
+    .string()
+    .min(2, "Nama minimal 2 karakter")
+    .max(100, "Nama terlalu panjang"),
+
+  businessName: z
+    .string()
+    .min(2, "Nama bisnis minimal 2 karakter")
+    .max(150, "Nama bisnis terlalu panjang"),
+
+  whatsappNumber: z
+    .string()
+    .regex(
+      /^(\+62|62|0)8[1-9][0-9]{7,11}$/,
+      "Nomor WhatsApp Indonesia tidak valid (contoh: 08123456789)"
+    ),
+
+  slotId: z.string().min(1, "Pilih posisi iklan"),
+
+  durationDays: z
+    .number()
+    .int()
+    .min(7, "Minimal 7 hari")
+    .max(365, "Maksimal 365 hari"),
+
+  startDate: z
+    .string()
+    .min(1, "Pilih tanggal mulai")
+    .refine((val) => {
+      const date = new Date(val);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      return date >= today;
+    }, "Tanggal mulai tidak boleh di masa lalu"),
+});
+
+export type CreateAdOrderClientInput = z.infer<typeof createAdOrderClientSchema>;
+
+// ═══════════════════════════════════════════════════════════════
+// SERVER-SIDE SCHEMA (untuk server action yang parse FormData)
+// ═══════════════════════════════════════════════════════════════
+
+export const createAdOrderServerSchema = z.object({
+  advertiserName: z
+    .string()
+    .min(2, "Nama minimal 2 karakter")
+    .max(100, "Nama terlalu panjang"),
+
+  businessName: z
+    .string()
+    .min(2, "Nama bisnis minimal 2 karakter")
+    .max(150, "Nama bisnis terlalu panjang"),
+
+  whatsappNumber: z
+    .string()
+    .regex(
+      /^(\+62|62|0)8[1-9][0-9]{7,11}$/,
+      "Nomor WhatsApp Indonesia tidak valid"
+    ),
+
+  slotId: z.string().min(1, "Pilih posisi iklan"),
+
+  durationDays: z
+    .string()
+    .transform((val) => parseInt(val, 10))
+    .pipe(
+      z
+        .number()
+        .int()
+        .min(7, "Minimal 7 hari")
+        .max(365, "Maksimal 365 hari")
+    ),
+
+  startDate: z
+    .string()
+    .min(1, "Pilih tanggal mulai")
+    .refine((val) => {
+      const date = new Date(val);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      return date >= today;
+    }, "Tanggal mulai tidak boleh di masa lalu"),
+});
+
+export type CreateAdOrderServerInput = z.infer<typeof createAdOrderServerSchema>;
+
+// Alias backward compatibility
+export const createAdOrderSchema = createAdOrderClientSchema;
+export type CreateAdOrderInput = CreateAdOrderClientInput;
+
+// ═══════════════════════════════════════════════════════════════
+// UPLOAD CREATIVE SCHEMA (server-side)
+// ═══════════════════════════════════════════════════════════════
+
+export const uploadCreativeSchema = z.object({
+  imageDataUri: z
+    .string()
+    .min(1, "Pilih file gambar")
+    .refine(
+      (val) => val.startsWith("data:image/"),
+      "File harus berupa gambar"
+    ),
+
+  targetUrl: z
+    .string()
+    .url("URL tujuan tidak valid (harus diawali https://)")
+    .refine(
+      (val) => val.startsWith("https://"),
+      "URL harus menggunakan HTTPS untuk keamanan"
+    ),
+
+  altText: z
+    .string()
+    .max(200, "Teks alt terlalu panjang")
+    .optional()
+    .default(""),
+
+  imageWidth: z
+    .string()
+    .transform((val) => parseInt(val, 10))
+    .pipe(z.number().int().positive()),
+
+  imageHeight: z
+    .string()
+    .transform((val) => parseInt(val, 10))
+    .pipe(z.number().int().positive()),
+
+  imageSizeBytes: z
+    .string()
+    .transform((val) => parseInt(val, 10))
+    .pipe(z.number().int().positive()),
+});
+
+export type UploadCreativeInput = z.infer<typeof uploadCreativeSchema>;
+
+// ═══════════════════════════════════════════════════════════════
+// ADMIN: REJECT SCHEMA
+// ═══════════════════════════════════════════════════════════════
+
+export const rejectCreativeSchema = z.object({
+  orderId: z.string().min(1),
+  rejectionReason: z
+    .string()
+    .min(10, "Alasan penolakan minimal 10 karakter")
+    .max(500, "Alasan terlalu panjang"),
+});
+
+export type RejectCreativeInput = z.infer<typeof rejectCreativeSchema>;
+
+// ═══════════════════════════════════════════════════════════════
+// IMAGE VALIDATION HELPER
+// ═══════════════════════════════════════════════════════════════
+
+export interface ImageValidationResult {
+  valid: boolean;
+  error?: string;
+}
+
+export function validateAdImageDimensions(
+  width: number,
+  height: number,
+  position: string,
+  sizeBytes: number
+): ImageValidationResult {
+  const MAX_SIZE_MB: Record<string, number> = {
+    HEADER: 1,
+    SIDEBAR: 0.5,
+    INLINE: 0.5,
+    FOOTER: 0.5,
+  };
+
+  const maxMB = MAX_SIZE_MB[position] ?? 1;
+  const maxBytes = maxMB * 1024 * 1024;
+
+  if (sizeBytes > maxBytes) {
+    return {
+      valid: false,
+      error: `Ukuran file maksimal ${maxMB}MB untuk posisi ${position}`,
+    };
+  }
+
+  if (width < 200 || height < 50) {
+    return {
+      valid: false,
+      error: "Dimensi gambar terlalu kecil (minimal 200×50 pixel)",
+    };
+  }
+
+  if (width > 2000 || height > 2000) {
+    return {
+      valid: false,
+      error: "Dimensi gambar terlalu besar (maksimal 2000×2000 pixel)",
+    };
+  }
+
+  return { valid: true };
+}

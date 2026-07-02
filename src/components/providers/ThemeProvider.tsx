@@ -1,55 +1,84 @@
 // src/components/providers/ThemeProvider.tsx
 "use client";
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 
 type Theme = "light" | "dark";
 
-interface ThemeContextValue {
+interface ThemeContextType {
   theme: Theme;
   toggleTheme: () => void;
+  setTheme: (theme: Theme) => void;
 }
 
-const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
+const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<Theme>("light");
-  const [mounted, setMounted] = useState(false);
+interface ThemeProviderProps {
+  children: React.ReactNode;
+  initialTheme?: Theme;
+}
 
+// Helper: set cookie theme (client-side)
+function setThemeCookie(theme: Theme) {
+  // Cookie berlaku 1 tahun
+  const oneYear = 60 * 60 * 24 * 365;
+  document.cookie = `theme=${theme}; path=/; max-age=${oneYear}; SameSite=Lax`;
+}
+
+// Helper: apply class ke <html>
+function applyThemeClass(theme: Theme) {
+  if (theme === "dark") {
+    document.documentElement.classList.add("dark");
+  } else {
+    document.documentElement.classList.remove("dark");
+  }
+}
+
+export function ThemeProvider({
+  children,
+  initialTheme = "light",
+}: ThemeProviderProps) {
+  const [theme, setThemeState] = useState<Theme>(initialTheme);
+
+  // Sync dengan sistem theme di first mount (jika belum ada cookie)
   useEffect(() => {
-    // Baca preferensi dari localStorage atau OS
-    const stored = localStorage.getItem("cipanas-theme") as Theme | null;
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    const initial: Theme = stored ?? (prefersDark ? "dark" : "light");
+    const hasCookie = document.cookie
+      .split("; ")
+      .some((c) => c.startsWith("theme="));
 
-    setTheme(initial);
-    setMounted(true);
+    if (!hasCookie) {
+      // Belum ada preferensi user — pakai sistem
+      const systemDark = window.matchMedia(
+        "(prefers-color-scheme: dark)"
+      ).matches;
+      const detected: Theme = systemDark ? "dark" : "light";
+      setThemeState(detected);
+      applyThemeClass(detected);
+      setThemeCookie(detected);
+    }
   }, []);
 
-  useEffect(() => {
-    if (!mounted) return;
-
-    if (theme === "dark") {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
-    localStorage.setItem("cipanas-theme", theme);
-  }, [theme, mounted]);
+  const setTheme = (t: Theme) => {
+    setThemeState(t);
+    applyThemeClass(t);
+    setThemeCookie(t);
+  };
 
   const toggleTheme = () => {
-    setTheme((prev) => (prev === "dark" ? "light" : "dark"));
+    setTheme(theme === "light" ? "dark" : "light");
   };
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+    <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
       {children}
     </ThemeContext.Provider>
   );
 }
 
 export function useTheme() {
-  const ctx = useContext(ThemeContext);
-  if (!ctx) throw new Error("useTheme must be used within ThemeProvider");
-  return ctx;
+  const context = useContext(ThemeContext);
+  if (!context) {
+    throw new Error("useTheme must be used within ThemeProvider");
+  }
+  return context;
 }

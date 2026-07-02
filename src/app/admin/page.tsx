@@ -12,6 +12,7 @@ import {
 import { AdminStatsCards } from "@/components/admin/AdminStatsCards";
 import { AdminOverviewCharts } from "@/components/admin/AdminOverviewCharts";
 import { formatRelativeTime } from "@/lib/format";
+import { RunCronButton } from "@/components/admin/RunCronButton";
 
 const actionLabels: Record<string, string> = {
     APPROVE_ARTICLE: "menyetujui artikel",
@@ -26,6 +27,10 @@ const actionLabels: Record<string, string> = {
     DELETE_USER: "menghapus user",
     APPROVE_AD: "menyetujui iklan",
     REJECT_AD: "menolak iklan",
+    VERIFY_AD_PAYMENT: "memverifikasi pembayaran iklan",
+    APPROVE_AD_CREATIVE: "menyetujui materi iklan",
+    REJECT_AD_CREATIVE: "menolak materi iklan",
+    EXPIRE_AD_ORDER: "menandai iklan kadaluarsa",
 };
 
 export default async function AdminOverviewPage() {
@@ -123,10 +128,10 @@ export default async function AdminOverviewPage() {
                 )}
             </div>
 
-            {/* Cron controls (untuk testing) */}
+            {/* Cron controls (trigger manual) */}
             <div className="mt-8 rounded-xl border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
-                <div className="flex items-center justify-between">
-                    <div>
+                <div className="flex items-center justify-between gap-4">
+                    <div className="flex-1">
                         <h3 className="font-serif text-lg font-bold text-neutral-900 dark:text-white">
                             Cron Iklan
                         </h3>
@@ -134,14 +139,7 @@ export default async function AdminOverviewPage() {
                             Trigger manual untuk update status iklan (auto-expire iklan yang sudah lewat endDate).
                         </p>
                     </div>
-                    <a
-                        href="/api/cron/ads"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300"
-                    >
-                        Jalankan Cron
-                    </a>
+                    <RunCronButton />
                 </div>
             </div>
         </div>

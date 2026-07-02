@@ -5,7 +5,8 @@ import { cn } from "@/lib/utils";
 type FilterKey =
   | "ALL"
   | "PENDING_PAYMENT"
-  | "PENDING_APPROVAL"
+  | "AWAITING_CREATIVE"
+  | "PENDING_REVIEW"
   | "ACTIVE"
   | "EXPIRED"
   | "REJECTED";
@@ -20,7 +21,7 @@ const filters: {
   label: string;
   priority?: boolean;
 }[] = [
-  { key: "PENDING_APPROVAL", label: "Perlu Approval", priority: true },
+  { key: "AWAITING_CREATIVE", label: "Menunggu Upload", priority: true },
   { key: "ACTIVE", label: "Aktif" },
   { key: "PENDING_PAYMENT", label: "Belum Bayar" },
   { key: "EXPIRED", label: "Kadaluwarsa" },
