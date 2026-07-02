@@ -3,7 +3,6 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import {
   LayoutDashboard,
-  FileCheck2,
   Newspaper,
   FolderTree,
   Users,
@@ -23,10 +22,9 @@ export default async function AdminLayout({
 
   const navItems = [
     { href: "/admin", label: "Overview", icon: LayoutDashboard },
-    { href: "/admin/review", label: "Review Artikel", icon: FileCheck2 },
-    { href: "/admin/artikel", label: "Semua Artikel", icon: Newspaper },
+    { href: "/admin/berita", label: "Kelola Berita", icon: Newspaper },
     { href: "/admin/kategori", label: "Kategori", icon: FolderTree },
-    { href: "/admin/users", label: "Pengguna", icon: Users },
+    { href: "/admin/pengguna", label: "Pengguna", icon: Users },
     { href: "/admin/iklan", label: "Iklan", icon: Megaphone },
     { href: "/admin/log", label: "Log Aktivitas", icon: Activity },
   ];

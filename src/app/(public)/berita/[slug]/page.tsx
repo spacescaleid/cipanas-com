@@ -17,6 +17,7 @@ import { ShareButtons } from "@/components/article/ShareButtons";
 import { AuthorCard } from "@/components/article/AuthorCard";
 import { RelatedArticles } from "@/components/article/RelatedArticles";
 import { PopularSidebar } from "@/components/article/PopularSidebar";
+import { AdSlotDisplay } from "@/components/ads/AdSlotDisplay";
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -62,7 +63,6 @@ export default async function ArticleDetailPage({ params }: Props) {
         <div className="grid gap-10 lg:grid-cols-3">
           {/* Konten utama */}
           <div className="lg:col-span-2">
-            {/* Breadcrumb sederhana */}
             <nav className="mb-4 text-xs text-neutral-500">
               <CategoryBadge
                 name={article.category.name}
@@ -71,12 +71,10 @@ export default async function ArticleDetailPage({ params }: Props) {
               />
             </nav>
 
-            {/* Judul */}
             <h1 className="font-serif text-3xl font-bold leading-tight text-neutral-900 dark:text-white md:text-5xl">
               {article.title}
             </h1>
 
-            {/* Meta */}
             <div className="mt-6 flex flex-wrap items-center gap-4 border-y border-neutral-200 py-4 text-sm text-neutral-600 dark:border-neutral-800 dark:text-neutral-400">
               <div className="flex items-center gap-2">
                 <span className="font-semibold text-neutral-900 dark:text-white">
@@ -98,7 +96,6 @@ export default async function ArticleDetailPage({ params }: Props) {
               </span>
             </div>
 
-            {/* Cover Image */}
             {article.coverImage && (
               <div className="relative mt-6 aspect-[16/9] overflow-hidden rounded-xl bg-neutral-100 dark:bg-neutral-800">
                 <Image
@@ -112,29 +109,31 @@ export default async function ArticleDetailPage({ params }: Props) {
               </div>
             )}
 
-            {/* Content */}
             <div className="mt-8">
               <ArticleContent html={article.content} />
             </div>
 
-            {/* Placeholder ad inline */}
-            <div className="my-10 flex h-24 items-center justify-center rounded-xl border-2 border-dashed border-neutral-300 text-sm text-neutral-500 dark:border-neutral-700">
-              Slot Iklan Inline
+            {/* INLINE AD */}
+            <div className="my-10">
+              <Suspense
+                fallback={
+                  <div className="h-32 animate-pulse rounded-xl bg-neutral-100 dark:bg-neutral-800" />
+                }
+              >
+                <AdSlotDisplay position="INLINE" />
+              </Suspense>
             </div>
 
-            {/* Share */}
             <div className="mt-8 border-t border-neutral-200 pt-6 dark:border-neutral-800">
               <ShareButtons title={article.title} slug={article.slug} />
             </div>
 
-            {/* Author */}
             <AuthorCard
               name={article.author.name}
               image={article.author.image}
               bio={article.author.bio}
             />
 
-            {/* Related */}
             <Suspense fallback={null}>
               <RelatedArticles
                 articleId={article.id}
@@ -145,7 +144,7 @@ export default async function ArticleDetailPage({ params }: Props) {
 
           {/* Sidebar */}
           <aside className="space-y-6">
-            <div className="lg:sticky lg:top-32">
+            <div className="lg:sticky lg:top-32 space-y-6">
               <Suspense
                 fallback={
                   <div className="h-96 animate-pulse rounded-xl bg-neutral-100 dark:bg-neutral-800" />
@@ -154,9 +153,13 @@ export default async function ArticleDetailPage({ params }: Props) {
                 <PopularSidebar />
               </Suspense>
 
-              <div className="mt-6 flex h-64 items-center justify-center rounded-xl border-2 border-dashed border-neutral-300 text-sm text-neutral-500 dark:border-neutral-700">
-                Slot Iklan Sidebar
-              </div>
+              <Suspense
+                fallback={
+                  <div className="h-64 animate-pulse rounded-xl bg-neutral-100 dark:bg-neutral-800" />
+                }
+              >
+                <AdSlotDisplay position="SIDEBAR" />
+              </Suspense>
             </div>
           </aside>
         </div>

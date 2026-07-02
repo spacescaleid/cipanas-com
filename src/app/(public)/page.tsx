@@ -1,5 +1,7 @@
 // src/app/(public)/page.tsx
 import { Suspense } from "react";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 
 import {
   getHeadlineArticle,
@@ -10,10 +12,9 @@ import {
 import { ArticleCard } from "@/components/article/ArticleCard";
 import { ArticleCardLarge } from "@/components/article/ArticleCardLarge";
 import { PopularSidebar } from "@/components/article/PopularSidebar";
-import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { AdSlotDisplay } from "@/components/ads/AdSlotDisplay";
 
-export const revalidate = 60; // ISR: revalidate tiap 60 detik
+export const revalidate = 60;
 
 export default async function HomePage() {
   const [headline, latest, categories] = await Promise.all([
@@ -22,15 +23,13 @@ export default async function HomePage() {
     getAllCategories(),
   ]);
 
-  // Ambil 4 artikel setelah headline (index 1-4)
   const secondaryArticles = latest.slice(1, 5);
-  // Sisanya untuk grid "Berita Terbaru"
   const olderArticles = latest.slice(5);
 
   return (
     <div className="animate-fade-in">
       <div className="mx-auto max-w-7xl px-4 py-6 md:py-8">
-        {/* HERO: headline + secondary */}
+        {/* HERO */}
         <section className="grid gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2">
             {headline && <ArticleCardLarge article={headline} />}
@@ -42,7 +41,18 @@ export default async function HomePage() {
           </div>
         </section>
 
-        {/* MAIN GRID: berita terbaru + sidebar terpopuler */}
+        {/* HEADER AD */}
+        <section className="mt-8">
+          <Suspense
+            fallback={
+              <div className="h-24 animate-pulse rounded-xl bg-neutral-100 dark:bg-neutral-800" />
+            }
+          >
+            <AdSlotDisplay position="HEADER" />
+          </Suspense>
+        </section>
+
+        {/* MAIN GRID */}
         <section className="mt-12 grid gap-8 lg:grid-cols-3">
           <div className="lg:col-span-2">
             <div className="mb-5 flex items-end justify-between border-b border-neutral-200 pb-3 dark:border-neutral-800">
@@ -70,17 +80,35 @@ export default async function HomePage() {
               <PopularSidebar />
             </Suspense>
 
-            {/* Placeholder ad slot */}
-            <div className="flex h-64 items-center justify-center rounded-xl border-2 border-dashed border-neutral-300 text-sm text-neutral-500 dark:border-neutral-700">
-              Slot Iklan Sidebar
-            </div>
+            <Suspense
+              fallback={
+                <div className="h-64 animate-pulse rounded-xl bg-neutral-100 dark:bg-neutral-800" />
+              }
+            >
+              <AdSlotDisplay position="SIDEBAR" />
+            </Suspense>
           </div>
         </section>
 
         {/* SECTIONS PER KATEGORI */}
         {categories.slice(0, 3).map((cat) => (
-          <CategorySection key={cat.id} categorySlug={cat.slug} categoryName={cat.name} />
+          <CategorySection
+            key={cat.id}
+            categorySlug={cat.slug}
+            categoryName={cat.name}
+          />
         ))}
+
+        {/* FOOTER AD */}
+        <section className="mt-12">
+          <Suspense
+            fallback={
+              <div className="h-20 animate-pulse rounded-xl bg-neutral-100 dark:bg-neutral-800" />
+            }
+          >
+            <AdSlotDisplay position="FOOTER" />
+          </Suspense>
+        </section>
       </div>
     </div>
   );

@@ -10,6 +10,7 @@ import {
 import { ArticleCard } from "@/components/article/ArticleCard";
 import { PopularSidebar } from "@/components/article/PopularSidebar";
 import { Pagination } from "@/components/ui/Pagination";
+import { AdSlotDisplay } from "@/components/ads/AdSlotDisplay";
 
 export const revalidate = 60;
 
@@ -44,7 +45,6 @@ export default async function CategoryPage({ params, searchParams }: Props) {
   return (
     <div className="animate-fade-in">
       <div className="mx-auto max-w-7xl px-4 py-8">
-        {/* Header kategori */}
         <div className="mb-8 border-b border-neutral-200 pb-6 dark:border-neutral-800">
           <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-brand-600 dark:text-brand-400">
             Kategori
@@ -58,7 +58,6 @@ export default async function CategoryPage({ params, searchParams }: Props) {
         </div>
 
         <div className="grid gap-8 lg:grid-cols-3">
-          {/* List artikel */}
           <div className="lg:col-span-2">
             {articles.length === 0 ? (
               <div className="rounded-xl border border-dashed border-neutral-300 p-12 text-center text-neutral-500 dark:border-neutral-700">
@@ -81,18 +80,23 @@ export default async function CategoryPage({ params, searchParams }: Props) {
             )}
           </div>
 
-          {/* Sidebar */}
           <aside className="space-y-6">
-            <Suspense
-              fallback={
-                <div className="h-96 animate-pulse rounded-xl bg-neutral-100 dark:bg-neutral-800" />
-              }
-            >
-              <PopularSidebar />
-            </Suspense>
+            <div className="lg:sticky lg:top-32 space-y-6">
+              <Suspense
+                fallback={
+                  <div className="h-96 animate-pulse rounded-xl bg-neutral-100 dark:bg-neutral-800" />
+                }
+              >
+                <PopularSidebar />
+              </Suspense>
 
-            <div className="flex h-64 items-center justify-center rounded-xl border-2 border-dashed border-neutral-300 text-sm text-neutral-500 dark:border-neutral-700">
-              Slot Iklan Sidebar
+              <Suspense
+                fallback={
+                  <div className="h-64 animate-pulse rounded-xl bg-neutral-100 dark:bg-neutral-800" />
+                }
+              >
+                <AdSlotDisplay position="SIDEBAR" />
+              </Suspense>
             </div>
           </aside>
         </div>
