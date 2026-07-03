@@ -14,6 +14,15 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'picsum.photos',
       },
+      // ⭐ YouTube thumbnails
+      {
+        protocol: 'https',
+        hostname: 'img.youtube.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'i.ytimg.com',
+      },
     ],
   },
   experimental: {
@@ -91,9 +100,11 @@ const nextConfig = {
               // For now, 'unsafe-inline' & 'unsafe-eval' are required by Next.js.
               "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
               "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' data: https://res.cloudinary.com https://picsum.photos https://images.unsplash.com",
+              "img-src 'self' data: https://res.cloudinary.com https://picsum.photos https://images.unsplash.com https://img.youtube.com https://i.ytimg.com",
               "font-src 'self'",
               "connect-src 'self' https://res.cloudinary.com https://api.cloudinary.com",
+              // Allow YouTube iframe embed di halaman detail video
+              "frame-src https://www.youtube.com https://www.youtube-nocookie.com",
               "frame-ancestors 'none'",
             ].join('; '),
           },
