@@ -3,6 +3,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
+import type { AdPosition } from "@prisma/client";
 
 interface AdItem {
   id: string;
@@ -12,20 +13,65 @@ interface AdItem {
 
 interface Props {
   ads: AdItem[];
+  position: AdPosition;
   rotateIntervalMs?: number;
 }
+
+/**
+ * Konfigurasi dimensi & pembatas ukuran per posisi iklan.
+ *
+ * `intrinsic`: ukuran asli banner (untuk width/height prop di next/image,
+ *              biar Next tahu aspect ratio & bisa optimize download).
+ * `wrapperClass`: pembatas max-w/max-h pada wrapper — mencegah iklan
+ *                 melebar/meninggi tak terkontrol di layar besar.
+ * `imgClass`: cara gambar mengisi wrapper — pakai object-contain supaya
+ *             tidak gepeng kalau pengiklan upload dengan rasio agak beda.
+ * `mobileHeightClass`: fallback tinggi di mobile (biar konsisten dengan placeholder).
+ */
+const AD_DIMENSIONS: Record<
+  AdPosition,
+  {
+    intrinsicWidth: number;
+    intrinsicHeight: number;
+    wrapperClass: string;
+  }
+> = {
+  HEADER: {
+    intrinsicWidth: 728,
+    intrinsicHeight: 90,
+    wrapperClass: "mx-auto w-full max-w-[728px] max-h-[120px]",
+  },
+  FOOTER: {
+    intrinsicWidth: 728,
+    intrinsicHeight: 90,
+    wrapperClass: "mx-auto w-full max-w-[728px] max-h-[120px]",
+  },
+  SIDEBAR: {
+    intrinsicWidth: 300,
+    intrinsicHeight: 250,
+    wrapperClass: "mx-auto w-full max-w-[300px] max-h-[280px]",
+  },
+  INLINE: {
+    intrinsicWidth: 600,
+    intrinsicHeight: 200,
+    wrapperClass: "mx-auto w-full max-w-[600px] max-h-[220px]",
+  },
+};
 
 /**
  * Rotator iklan client-side.
  * - Rotate tiap X detik (default 15 detik)
  * - Track impression lewat IntersectionObserver (cuma count kalau visible)
  * - Track impression tiap iklan cuma sekali per session
+ * - Ukuran gambar dibatasi per posisi via AD_DIMENSIONS
  */
-export function AdRotator({ ads, rotateIntervalMs = 15000 }: Props) {
+export function AdRotator({ ads, position, rotateIntervalMs = 15000 }: Props) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const impressedIdsRef = useRef<Set<string>>(new Set());
   const [isVisible, setIsVisible] = useState(false);
+
+  const dims = AD_DIMENSIONS[position];
 
   // IntersectionObserver: cek apakah iklan visible di viewport
   useEffect(() => {
@@ -106,20 +152,18 @@ export function AdRotator({ ads, rotateIntervalMs = 15000 }: Props) {
         href={`/api/ads/${currentAd.id}/click`}
         target="_blank"
         rel="noopener noreferrer sponsored"
-        className="block overflow-hidden rounded-xl border border-neutral-200 bg-white transition hover:opacity-90 dark:border-neutral-800 dark:bg-neutral-900"
+        className={`block overflow-hidden rounded-xl border border-neutral-200 bg-white transition hover:opacity-90 dark:border-neutral-800 dark:bg-neutral-900 ${dims.wrapperClass}`}
         aria-label={`Iklan ${currentAd.advertiserName}`}
       >
-        <div className="relative">
-          <Image
-            key={currentAd.id}
-            src={currentAd.mediaUrl ?? "/images/placeholder-ad.png"}
-            alt={`Iklan ${currentAd.advertiserName}`}
-            width={800}
-            height={200}
-            className="mx-auto h-auto w-full object-contain animate-fade-in"
-            unoptimized
-          />
-        </div>
+        <Image
+          key={currentAd.id}
+          src={currentAd.mediaUrl ?? "/images/placeholder-ad.png"}
+          alt={`Iklan ${currentAd.advertiserName}`}
+          width={dims.intrinsicWidth}
+          height={dims.intrinsicHeight}
+          className="h-auto w-full object-contain animate-fade-in"
+          unoptimized
+        />
       </a>
     </div>
   );

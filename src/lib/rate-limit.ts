@@ -42,33 +42,72 @@ interface RateLimitResult {
   resetAt: number;
 }
 
+interface CheckRateLimitOptions {
+  /**
+   * Kalau `false`, cuma cek status tanpa increment counter (peek mode).
+   * Berguna untuk pre-flight check di UI yang tidak boleh menghabiskan
+   * jatah percobaan sebenarnya.
+   *
+   * Default: `true` (increment counter — perilaku normal).
+   */
+  consume?: boolean;
+}
+
 /**
  * Cek rate limit berdasarkan key (biasanya IP address).
+ *
+ * @example
+ * // Normal mode (increment counter):
+ * const rl = checkRateLimit("login:1.2.3.4", LOGIN_RATE_LIMIT);
+ *
+ * @example
+ * // Peek mode (jangan increment — untuk pre-flight check):
+ * const rl = checkRateLimit("login:1.2.3.4", LOGIN_RATE_LIMIT, { consume: false });
  */
 export function checkRateLimit(
   key: string,
-  config: RateLimitConfig
+  config: RateLimitConfig,
+  options: CheckRateLimitOptions = {}
 ): RateLimitResult {
+  const consume = options.consume !== false;
   const now = Date.now();
   const entry = store.get(key);
 
-  // Entry tidak ada atau sudah expired → reset
+  // Entry tidak ada atau sudah expired
   if (!entry || entry.resetAt < now) {
-    const resetAt = now + config.windowSeconds * 1000;
-    store.set(key, { count: 1, resetAt });
-    return { success: true, remaining: config.limit - 1, resetAt };
+    if (consume) {
+      // Create new entry dengan count = 1
+      const resetAt = now + config.windowSeconds * 1000;
+      store.set(key, { count: 1, resetAt });
+      return { success: true, remaining: config.limit - 1, resetAt };
+    }
+    // Peek mode: fresh state, belum ada percobaan
+    return {
+      success: true,
+      remaining: config.limit,
+      resetAt: now + config.windowSeconds * 1000,
+    };
   }
 
-  // Masih dalam window → increment
-  entry.count++;
+  // Masih dalam window
+  const currentCount = consume ? entry.count + 1 : entry.count;
 
-  if (entry.count > config.limit) {
+  if (currentCount > config.limit) {
+    // Limit tercapai
+    if (consume) {
+      // Tetap update count supaya window terus tercatat
+      entry.count = currentCount;
+    }
     return { success: false, remaining: 0, resetAt: entry.resetAt };
+  }
+
+  if (consume) {
+    entry.count = currentCount;
   }
 
   return {
     success: true,
-    remaining: config.limit - entry.count,
+    remaining: config.limit - currentCount,
     resetAt: entry.resetAt,
   };
 }
@@ -111,11 +150,6 @@ export function getClientIp(request: Request): string {
 
 /**
  * Ambil IP dari Headers instance (untuk Server Actions via next/headers).
- *
- * Contoh pemakaian:
- *   import { headers } from "next/headers";
- *   const h = await headers();
- *   const ip = getClientIpFromNextHeaders(h);
  */
 export function getClientIpFromNextHeaders(headers: Headers): string {
   return parseIpFromHeaderGetter((key) => headers.get(key));
@@ -123,15 +157,6 @@ export function getClientIpFromNextHeaders(headers: Headers): string {
 
 /**
  * Ambil IP dari plain object headers (untuk NextAuth v4 authorize() req.headers).
- *
- * NextAuth v4 Credentials Provider passing req sebagai plain object dengan
- * shape { query, body, headers, method }, dimana headers adalah plain
- * Record<string, string | string[] | undefined>, BUKAN Headers instance.
- *
- * Contoh pemakaian:
- *   async authorize(credentials, req) {
- *     const ip = getClientIpFromHeaders(req?.headers);
- *   }
  */
 export function getClientIpFromHeaders(
   headers: Record<string, string | string[] | undefined> | undefined

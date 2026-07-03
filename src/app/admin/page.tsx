@@ -153,7 +153,7 @@ export default async function AdminOverviewPage() {
                             dan ubah status jadi{" "}
                             <span className="font-mono font-semibold text-neutral-700 dark:text-neutral-300">
                                 EXPIRED
-                            </span>
+                            </span> 
                             . Iklan yang masih dalam periode tayang{" "}
                             <strong>tidak akan tersentuh</strong>. Untuk stop iklan
                             aktif manual atau hapus iklan expired, buka detail iklan

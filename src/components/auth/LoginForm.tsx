@@ -18,6 +18,45 @@ const loginSchema = z.object({
 
 type LoginFormData = z.infer<typeof loginSchema>;
 
+interface RateLimitCheckResponse {
+  limited: boolean;
+  minutesRemaining?: number;
+}
+
+/**
+ * Pre-flight check rate limit sebelum signIn().
+ * Return `null` kalau boleh lanjut, atau string error message kalau kena limit.
+ *
+ * Menggunakan mode "peek" di server — tidak menghabiskan jatah rate limit user.
+ * Ini murni untuk UX (menampilkan pesan yang akurat). Guard di `authorize()`
+ * NextAuth tetap ada sebagai gerbang otoritatif.
+ */
+async function checkLoginRateLimit(): Promise<string | null> {
+  try {
+    const res = await fetch("/api/auth/check-rate-limit", {
+      method: "GET",
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      // Endpoint bermasalah — biarkan lanjut, NextAuth authorize() akan handle
+      return null;
+    }
+
+    const data: RateLimitCheckResponse = await res.json();
+
+    if (data.limited) {
+      const mins = data.minutesRemaining ?? 15;
+      return `Terlalu banyak percobaan login. Coba lagi dalam ${mins} menit.`;
+    }
+
+    return null;
+  } catch {
+    // Network error — biarkan lanjut
+    return null;
+  }
+}
+
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -35,6 +74,17 @@ export function LoginForm() {
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true);
 
+    // ─── Pre-flight rate limit check ────────────────────────────
+    // Cek dulu status limit user SEBELUM manggil signIn(), supaya kalau
+    // user sudah kena limit, dapat pesan yang jelas — bukan pesan generik
+    // "Email atau password salah" dari NextAuth.
+    const rateLimitError = await checkLoginRateLimit();
+    if (rateLimitError) {
+      toast.error(rateLimitError);
+      setIsLoading(false);
+      return;
+    }
+
     const result = await signIn("credentials", {
       email: data.email,
       password: data.password,
@@ -44,6 +94,10 @@ export function LoginForm() {
     setIsLoading(false);
 
     if (result?.error) {
+      // Fallback: kalau pre-flight lolos tapi tetap kena error, tampilkan
+      // pesan generik. Ini bisa terjadi karena:
+      // - Race condition (2 tab login bersamaan)
+      // - Kredensial memang salah
       toast.error("Email atau password salah");
       return;
     }

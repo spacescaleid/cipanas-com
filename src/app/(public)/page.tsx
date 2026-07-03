@@ -70,10 +70,16 @@ export default async function HomePage() {
 
   return (
     <main className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
-      {/* HEADER AD SLOT */}
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {/* HEADER AD SLOT — center align, banner dibatasi 728px         */}
+      {/* ═══════════════════════════════════════════════════════════ */}
       <div className="border-b border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
         <div className="mx-auto max-w-7xl px-4 py-4">
-          <AdSlotDisplay position="HEADER" />
+          <div className="flex justify-center">
+            <div className="w-full max-w-[728px]">
+              <AdSlotDisplay position="HEADER" />
+            </div>
+          </div>
         </div>
       </div>
 
@@ -122,12 +128,16 @@ export default async function HomePage() {
               </div>
             </section>
 
-            {/* Inline Ad */}
-            <div className="my-10 rounded-xl border border-dashed border-neutral-300 bg-white p-4 dark:border-neutral-700 dark:bg-neutral-900">
-              <p className="mb-3 text-center text-xs uppercase tracking-wider text-neutral-400">
-                Iklan
-              </p>
-              <AdSlotDisplay position="INLINE" />
+            {/* ═══════════════════════════════════════════════════ */}
+            {/* Inline Ad — container dibatasi 600px, center align   */}
+            {/* ═══════════════════════════════════════════════════ */}
+            <div className="my-10 flex justify-center">
+              <div className="w-full max-w-[600px] rounded-xl border border-dashed border-neutral-300 bg-white p-4 dark:border-neutral-700 dark:bg-neutral-900">
+                <p className="mb-3 text-center text-xs uppercase tracking-wider text-neutral-400">
+                  Iklan
+                </p>
+                <AdSlotDisplay position="INLINE" />
+              </div>
             </div>
 
             {/* Section: Berita Lainnya */}
@@ -149,7 +159,7 @@ export default async function HomePage() {
           {/* SIDEBAR */}
           <aside className="lg:sticky lg:top-4 lg:self-start">
             <div className="space-y-6">
-              {/* Sidebar Ad */}
+              {/* Sidebar Ad — sudah di kolom 320px, AdRotator batasi 300x280 */}
               <div className="rounded-xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
                 <p className="mb-3 text-center text-xs uppercase tracking-wider text-neutral-400">
                   Iklan
@@ -202,10 +212,16 @@ export default async function HomePage() {
         </div>
       </div>
 
-      {/* FOOTER AD SLOT */}
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {/* FOOTER AD SLOT — center align, banner dibatasi 728px         */}
+      {/* ═══════════════════════════════════════════════════════════ */}
       <div className="border-t border-neutral-200 bg-white py-6 dark:border-neutral-800 dark:bg-neutral-900">
         <div className="mx-auto max-w-7xl px-4">
-          <AdSlotDisplay position="FOOTER" />
+          <div className="flex justify-center">
+            <div className="w-full max-w-[728px]">
+              <AdSlotDisplay position="FOOTER" />
+            </div>
+          </div>
         </div>
       </div>
     </main>

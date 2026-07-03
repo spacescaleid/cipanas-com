@@ -13,6 +13,9 @@ interface Props {
 /**
  * Server component yang fetch iklan aktif untuk posisi ini,
  * lalu delegasikan render + rotasi ke client component AdRotator.
+ *
+ * Meneruskan `position` ke AdRotator supaya rotator bisa menerapkan
+ * batasan ukuran yang sesuai per posisi.
  */
 export async function AdSlotDisplay({ position, className }: Props) {
   const ads = await getActiveAdsForPosition(position, 5);
@@ -29,7 +32,11 @@ export async function AdSlotDisplay({ position, className }: Props) {
 
   return (
     <div className={className}>
-      <AdRotator ads={serialized} rotateIntervalMs={15000} />
+      <AdRotator
+        ads={serialized}
+        position={position}
+        rotateIntervalMs={15000}
+      />
     </div>
   );
 }
