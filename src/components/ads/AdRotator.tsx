@@ -20,66 +20,75 @@ interface Props {
 /**
  * Konfigurasi ukuran iklan per posisi.
  *
- * FILOSOFI:
- * - Tinggi maksimum bener-bener di-LOCK (bukan cuma hint) supaya iklan
- *   TIDAK PERNAH melebihi tinggi yang dipatok, apapun aspect ratio gambar
- *   yang di-upload pengiklan.
- * - Batasan upload di server cuma 200×50 s/d 2000×2000 (lihat validateAdImageDimensions),
- *   jadi pengiklan bebas upload aspect ratio apa saja. Kita perlu handle
- *   itu dengan graceful — pakai `object-contain` supaya gambar tetap utuh
- *   (tidak terpotong, tidak stretch), dengan letterbox (whitespace atas/bawah)
- *   kalau aspect ratio gambar beda dari kotak iklan.
- * - Angka height di sini SENGAJA lebih longgar dari height "ideal" banner
- *   (misal HEADER ideal 90px, di sini kita kasih 160px) supaya banner
- *   normal-height tampil natural, tapi banner ekstrem tetap ke-cap.
+ * STRATEGI 2-MODE:
+ *
+ * MODE "banner" (HEADER, FOOTER):
+ * - Container fixed size (max-w × h).
+ * - Gambar stretch fill container pakai object-cover.
+ * - Rasio gambar mengikuti container, bukan gambar asli.
+ * - Trade-off: gambar dengan aspek beda dari 728:160 akan ke-crop
+ *   sedikit dari sisi, TAPI banner terlihat "penuh" seperti di
+ *   news portal profesional (Kompas, Detik, dll).
+ *
+ * MODE "natural" (INLINE, SIDEBAR):
+ * - Container batasi max-width saja, tinggi ikut natural gambar.
+ * - Gambar tampil utuh dengan aspek asli (tidak ke-crop sama sekali).
+ * - Trade-off: tinggi container bervariasi tergantung gambar upload,
+ *   tapi respectful ke pengiklan (gambar tampil apa adanya).
  */
-const AD_DIMENSIONS: Record<
-  AdPosition,
-  {
-    intrinsicWidth: number;
-    intrinsicHeight: number;
-    /** Class untuk wrapper luar — batasi lebar */
-    outerClass: string;
-    /** Class untuk container image — LOCK height di sini */
-    innerClass: string;
-  }
-> = {
+type AdMode = "banner" | "natural";
+
+interface AdDimension {
+  mode: AdMode;
+  intrinsicWidth: number;
+  intrinsicHeight: number;
+  /** Class untuk wrapper luar */
+  outerClass: string;
+  /** Class untuk container image (khusus mode banner) */
+  innerClass?: string;
+  /** Class untuk image (khusus mode natural) */
+  imageClass?: string;
+}
+
+const AD_DIMENSIONS: Record<AdPosition, AdDimension> = {
   HEADER: {
+    mode: "banner",
     intrinsicWidth: 728,
-    intrinsicHeight: 90,
+    intrinsicHeight: 160,
     outerClass: "mx-auto w-full max-w-[728px]",
-    // h-40 = 160px di semua breakpoint. Cukup buat banner 728×90 sampai
-    // banner agak square. Kalau lebih tinggi lagi, di-letterbox.
+    // Container fixed 160px height, image stretch fill (object-cover)
     innerClass: "relative w-full h-32 sm:h-40",
   },
   FOOTER: {
+    mode: "banner",
     intrinsicWidth: 728,
-    intrinsicHeight: 90,
+    intrinsicHeight: 160,
     outerClass: "mx-auto w-full max-w-[728px]",
     innerClass: "relative w-full h-32 sm:h-40",
   },
   SIDEBAR: {
+    mode: "natural",
     intrinsicWidth: 300,
     intrinsicHeight: 250,
     outerClass: "mx-auto w-full max-w-[300px]",
-    // Sidebar biasanya kotak, jadi kasih h yang mendekati square (280px)
-    innerClass: "relative w-full h-[280px]",
+    // Image natural aspect, batasi max-height biar tidak terlalu tinggi
+    imageClass: "h-auto w-full max-h-[400px] object-cover",
   },
   INLINE: {
+    mode: "natural",
     intrinsicWidth: 600,
     intrinsicHeight: 200,
     outerClass: "mx-auto w-full max-w-[600px]",
-    // Inline biasanya medium rectangle, 240px cukup
-    innerClass: "relative w-full h-56 sm:h-60",
+    // Gambar tampil natural, batasi max-height ke 500px sebagai safety
+    imageClass: "h-auto w-full max-h-[500px] object-cover",
   },
 };
 
 /**
  * Rotator iklan client-side.
  * - Rotate tiap X detik (default 15 detik)
- * - Track impression lewat IntersectionObserver (cuma count kalau visible)
- * - Track impression tiap iklan cuma sekali per session
- * - Height iklan di-LOCK per posisi (tidak bisa dibocorkan gambar tinggi)
+ * - Track impression via IntersectionObserver
+ * - Support 2 mode: banner (fill container) & natural (fit gambar)
  */
 export function AdRotator({ ads, position, rotateIntervalMs = 15000 }: Props) {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -89,7 +98,7 @@ export function AdRotator({ ads, position, rotateIntervalMs = 15000 }: Props) {
 
   const dims = AD_DIMENSIONS[position];
 
-  // IntersectionObserver: cek apakah iklan visible di viewport
+  // IntersectionObserver
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -105,7 +114,7 @@ export function AdRotator({ ads, position, rotateIntervalMs = 15000 }: Props) {
     return () => observer.disconnect();
   }, []);
 
-  // Track impression untuk iklan current
+  // Track impression
   useEffect(() => {
     if (!isVisible || ads.length === 0) return;
     const currentAd = ads[currentIndex];
@@ -162,31 +171,48 @@ export function AdRotator({ ads, position, rotateIntervalMs = 15000 }: Props) {
         )}
       </div>
 
-      {/*
-        STRUKTUR:
-        - <a>       : batasi WIDTH per posisi (max-w)
-        - <div>     : LOCK HEIGHT per posisi (h fixed)
-        - <Image>   : fill container, object-contain biar rasio asli terjaga
-                      (bakal ada letterbox kalau rasio gambar beda dari box)
-      */}
       <a
         href={`/api/ads/${currentAd.id}/click`}
         target="_blank"
         rel="noopener noreferrer sponsored"
-        className={`block overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 transition hover:opacity-90 dark:border-neutral-800 dark:bg-neutral-900 ${dims.outerClass}`}
+        className={`block overflow-hidden rounded-xl border border-neutral-200 bg-neutral-100 transition hover:opacity-90 dark:border-neutral-800 dark:bg-neutral-900 ${dims.outerClass}`}
         aria-label={`Iklan ${currentAd.advertiserName}`}
       >
-        <div className={dims.innerClass}>
+        {dims.mode === "banner" ? (
+          // ═══════════════════════════════════════════════════════════
+          // MODE BANNER (HEADER, FOOTER)
+          // Container fixed, image stretch fill dengan object-cover.
+          // Cocok untuk banner ala news portal.
+          // ═══════════════════════════════════════════════════════════
+          <div className={dims.innerClass}>
+            <Image
+              key={currentAd.id}
+              src={currentAd.mediaUrl ?? "/images/placeholder-ad.png"}
+              alt={`Iklan ${currentAd.advertiserName}`}
+              fill
+              sizes={`(max-width: 640px) 100vw, ${dims.intrinsicWidth}px`}
+              className="object-cover animate-fade-in"
+              unoptimized
+              priority={position === "HEADER"}
+            />
+          </div>
+        ) : (
+          // ═══════════════════════════════════════════════════════════
+          // MODE NATURAL (INLINE, SIDEBAR)
+          // Container fit ke gambar, image tampil dengan aspek asli.
+          // Cocok untuk medium rectangle / creative ads.
+          // ═══════════════════════════════════════════════════════════
           <Image
             key={currentAd.id}
             src={currentAd.mediaUrl ?? "/images/placeholder-ad.png"}
             alt={`Iklan ${currentAd.advertiserName}`}
-            fill
+            width={dims.intrinsicWidth}
+            height={dims.intrinsicHeight}
             sizes={`(max-width: 640px) 100vw, ${dims.intrinsicWidth}px`}
-            className="object-contain animate-fade-in"
+            className={`${dims.imageClass ?? ""} animate-fade-in`}
             unoptimized
           />
-        </div>
+        )}
       </a>
     </div>
   );
