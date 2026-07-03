@@ -73,17 +73,77 @@ export function checkRateLimit(
   };
 }
 
+// ─── IP Parsing Helpers ────────────────────────────────────────────
+
 /**
- * Helper: ambil IP dari request (support Vercel proxy headers).
+ * Type: fungsi getter yang ambil value dari header key.
+ * Dipakai untuk unifikasi parsing IP dari berbagai sumber header:
+ * - Web API Request.headers (Route Handlers)
+ * - Headers instance dari next/headers (Server Actions)
+ * - Plain object headers (NextAuth v4 authorize())
  */
-export function getClientIp(request: Request): string {
-  const forwarded = request.headers.get("x-forwarded-for");
-  if (forwarded) {
+type HeaderGetter = (key: string) => string | null | undefined;
+
+/**
+ * Core IP parser: ambil IP dari header pakai getter function.
+ * Prioritas: x-forwarded-for (bagian pertama) → x-real-ip → "unknown"
+ */
+function parseIpFromHeaderGetter(get: HeaderGetter): string {
+  const forwarded = get("x-forwarded-for");
+  if (typeof forwarded === "string" && forwarded.length > 0) {
     return forwarded.split(",")[0].trim();
   }
-  const realIp = request.headers.get("x-real-ip");
-  if (realIp) return realIp;
+
+  const realIp = get("x-real-ip");
+  if (typeof realIp === "string" && realIp.length > 0) {
+    return realIp;
+  }
+
   return "unknown";
+}
+
+/**
+ * Ambil IP dari Web API Request (untuk Route Handlers /api/*).
+ */
+export function getClientIp(request: Request): string {
+  return parseIpFromHeaderGetter((key) => request.headers.get(key));
+}
+
+/**
+ * Ambil IP dari Headers instance (untuk Server Actions via next/headers).
+ *
+ * Contoh pemakaian:
+ *   import { headers } from "next/headers";
+ *   const h = await headers();
+ *   const ip = getClientIpFromNextHeaders(h);
+ */
+export function getClientIpFromNextHeaders(headers: Headers): string {
+  return parseIpFromHeaderGetter((key) => headers.get(key));
+}
+
+/**
+ * Ambil IP dari plain object headers (untuk NextAuth v4 authorize() req.headers).
+ *
+ * NextAuth v4 Credentials Provider passing req sebagai plain object dengan
+ * shape { query, body, headers, method }, dimana headers adalah plain
+ * Record<string, string | string[] | undefined>, BUKAN Headers instance.
+ *
+ * Contoh pemakaian:
+ *   async authorize(credentials, req) {
+ *     const ip = getClientIpFromHeaders(req?.headers);
+ *   }
+ */
+export function getClientIpFromHeaders(
+  headers: Record<string, string | string[] | undefined> | undefined
+): string {
+  if (!headers) return "unknown";
+
+  return parseIpFromHeaderGetter((key) => {
+    // NextAuth normalisasi header keys ke lowercase, tapi jaga-jaga
+    const value = headers[key] ?? headers[key.toLowerCase()];
+    if (Array.isArray(value)) return value[0];
+    return value;
+  });
 }
 
 // ─── Preset configs ────────────────────────────────────────────

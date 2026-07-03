@@ -3,6 +3,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import prisma from "@/lib/prisma";
 import {
   generateOrderCode,
@@ -19,6 +20,11 @@ import {
   uploadCreativeSchema,
   validateAdImageDimensions,
 } from "@/lib/ad-schemas";
+import {
+  checkRateLimit,
+  getClientIpFromNextHeaders,
+  CREATE_ORDER_RATE_LIMIT,
+} from "@/lib/rate-limit";
 import type { ZodError } from "zod";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -45,6 +51,33 @@ export async function createAdOrderAction(
   _prevState: ActionResult<{ orderCode: string }> | null,
   formData: FormData
 ): Promise<ActionResult<{ orderCode: string }>> {
+  // ═══════════════════════════════════════════════════════════════
+  // Rate limit check
+  // Cegah spam pemesanan iklan dari 1 IP (5 order per jam).
+  // Ditempatkan paling awal sebelum query DB untuk hindari beban
+  // database saat sedang di-spam.
+  // ═══════════════════════════════════════════════════════════════
+  try {
+    const headersList = await headers();
+    const ip = getClientIpFromNextHeaders(headersList);
+    const rl = checkRateLimit(`create-order:${ip}`, CREATE_ORDER_RATE_LIMIT);
+
+    if (!rl.success) {
+      return {
+        success: false,
+        error:
+          "Terlalu banyak percobaan pemesanan. Coba lagi dalam 1 jam.",
+      };
+    }
+  } catch (err) {
+    // Kalau headers() throw (rare, misal dipanggil di luar request context),
+    // log tapi lanjut supaya tidak block legitimate request.
+    console.warn(
+      "Rate limit check gagal, melanjutkan tanpa limit:",
+      err instanceof Error ? err.message : "unknown"
+    );
+  }
+
   const rawInput = {
     advertiserName: formData.get("advertiserName"),
     businessName: formData.get("businessName"),

@@ -59,9 +59,36 @@ const nextConfig = {
             value: 'camera=(), microphone=(), geolocation=()',
           },
           {
+            // ═══════════════════════════════════════════════════════════
+            // Content-Security-Policy (CSP)
+            //
+            // ⚠️ TODO(security-hardening): 'unsafe-inline' & 'unsafe-eval'
+            // di script-src saat ini masih diizinkan karena Next.js
+            // membutuhkannya untuk hydration script & inline event handlers.
+            //
+            // Migration path (planned): nonce-based CSP dengan middleware
+            // yang generate nonce per-request, lalu inject ke <Script nonce={nonce}>.
+            //
+            // Reference:
+            // https://nextjs.org/docs/app/building-your-application/configuring/content-security-policy
+            //
+            // Risk saat ini: LOW
+            // - XSS via user content sudah di-mitigate via HTML sanitization
+            //   (lihat src/lib/sanitize.ts + src/components/article/ArticleContent.tsx +
+            //   src/app/api/articles/route.ts) sebagai defense-in-depth.
+            // - CSP di sini masih membantu terhadap:
+            //   * script dari domain eksternal (default-src 'self')
+            //   * iframe embedding (frame-ancestors 'none')
+            //   * mixed content
+            //
+            // Prioritas migrasi: LOW-MEDIUM
+            // (kerjakan setelah Auth.js v5 migration, atau saat scale > 10k user/day)
+            // ═══════════════════════════════════════════════════════════
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
+              // Nonce-based CSP is the recommended long-term solution.
+              // For now, 'unsafe-inline' & 'unsafe-eval' are required by Next.js.
               "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: https://res.cloudinary.com https://picsum.photos https://images.unsplash.com",

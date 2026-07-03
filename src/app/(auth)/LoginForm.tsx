@@ -1,7 +1,7 @@
 // src/components/auth/LoginForm.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { signIn } from "next-auth/react";
@@ -20,11 +20,41 @@ const loginSchema = z.object({
 
 type LoginFormData = z.infer<typeof loginSchema>;
 
+/**
+ * Map NextAuth error code / custom message ke pesan Indonesia yang readable.
+ */
+function getErrorMessage(error: string | null): string | null {
+  if (!error) return null;
+
+  // Kalau error mengandung "Terlalu banyak" (dari RateLimitError kita), tampilkan apa adanya
+  if (error.includes("Terlalu banyak")) {
+    return error;
+  }
+
+  // Default: kredensial salah / error lain
+  return "Email atau password salah";
+}
+
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl");
+  const urlError = searchParams.get("error");
   const [isLoading, setIsLoading] = useState(false);
+
+  // Ref untuk cegah duplicate toast dari query param error
+  const shownUrlErrorRef = useRef<string | null>(null);
+
+  // Tampilkan error dari URL query param (dari NextAuth redirect)
+  useEffect(() => {
+    if (urlError && shownUrlErrorRef.current !== urlError) {
+      shownUrlErrorRef.current = urlError;
+      const message = getErrorMessage(urlError);
+      if (message) {
+        toast.error(message);
+      }
+    }
+  }, [urlError]);
 
   const {
     register,
@@ -46,7 +76,10 @@ export function LoginForm() {
     setIsLoading(false);
 
     if (result?.error) {
-      toast.error("Email atau password salah");
+      // result.error bisa berupa custom message dari RateLimitError,
+      // atau default "CredentialsSignin" dari NextAuth
+      const message = getErrorMessage(result.error);
+      toast.error(message ?? "Login gagal, coba lagi.");
       return;
     }
 
