@@ -20,52 +20,57 @@ interface Props {
 /**
  * Konfigurasi ukuran iklan per posisi.
  *
- * FILOSOFI (revisi): pakai kotak dengan ASPECT RATIO TETAP sesuai ukuran
- * resmi slot (728:90, 300:250, 600:200), bukan "max-height safety net"
- * yang gampang dilonggarin lagi dan gampang bocor di CSS.
- *
- * Dengan aspect-ratio tetap + `fill` + `object-contain`:
- * - Tinggi kotak SELALU mengikuti rumus (lebar kotak ÷ rasio) — tidak
- *   pernah bisa membengkak lebih dari itu, apa pun ukuran file gambar
- *   yang diupload pengiklan (beda dengan pendekatan `h-auto` sebelumnya
- *   yang tingginya ikut aspect ratio FILE ASLI, bukan aspect ratio SLOT).
- * - Kalau gambar pengiklan rasionya beda dari slot, `object-contain`
- *   bikin gambar di-scale utuh (tidak terpotong) dan center di kotak —
- *   ada sedikit ruang kosong di kiri-kanan/atas-bawah (letterbox),
- *   bukan gambar jadi gepeng ATAU kotak jadi membengkak.
- * - Ruang letterbox dikasih background halus (`bg-neutral-50`) supaya
- *   tetap enak dilihat, tidak terasa seperti bug.
+ * FILOSOFI:
+ * - Tinggi maksimum bener-bener di-LOCK (bukan cuma hint) supaya iklan
+ *   TIDAK PERNAH melebihi tinggi yang dipatok, apapun aspect ratio gambar
+ *   yang di-upload pengiklan.
+ * - Batasan upload di server cuma 200×50 s/d 2000×2000 (lihat validateAdImageDimensions),
+ *   jadi pengiklan bebas upload aspect ratio apa saja. Kita perlu handle
+ *   itu dengan graceful — pakai `object-contain` supaya gambar tetap utuh
+ *   (tidak terpotong, tidak stretch), dengan letterbox (whitespace atas/bawah)
+ *   kalau aspect ratio gambar beda dari kotak iklan.
+ * - Angka height di sini SENGAJA lebih longgar dari height "ideal" banner
+ *   (misal HEADER ideal 90px, di sini kita kasih 160px) supaya banner
+ *   normal-height tampil natural, tapi banner ekstrem tetap ke-cap.
  */
 const AD_DIMENSIONS: Record<
   AdPosition,
   {
-    /** Rasio lebar:tinggi resmi slot ini, dipakai sebagai CSS aspect-ratio */
-    aspectRatio: string;
-    /** Class pembatas lebar maksimum kotak iklan */
-    maxWidthClass: string;
-    /** Ukuran untuk atribut `sizes` next/image (optimasi + hindari CLS) */
-    sizes: string;
+    intrinsicWidth: number;
+    intrinsicHeight: number;
+    /** Class untuk wrapper luar — batasi lebar */
+    outerClass: string;
+    /** Class untuk container image — LOCK height di sini */
+    innerClass: string;
   }
 > = {
   HEADER: {
-    aspectRatio: "728 / 90",
-    maxWidthClass: "max-w-[728px]",
-    sizes: "(max-width: 768px) 100vw, 728px",
+    intrinsicWidth: 728,
+    intrinsicHeight: 90,
+    outerClass: "mx-auto w-full max-w-[728px]",
+    // h-40 = 160px di semua breakpoint. Cukup buat banner 728×90 sampai
+    // banner agak square. Kalau lebih tinggi lagi, di-letterbox.
+    innerClass: "relative w-full h-32 sm:h-40",
   },
   FOOTER: {
-    aspectRatio: "728 / 90",
-    maxWidthClass: "max-w-[728px]",
-    sizes: "(max-width: 768px) 100vw, 728px",
+    intrinsicWidth: 728,
+    intrinsicHeight: 90,
+    outerClass: "mx-auto w-full max-w-[728px]",
+    innerClass: "relative w-full h-32 sm:h-40",
   },
   SIDEBAR: {
-    aspectRatio: "300 / 250",
-    maxWidthClass: "max-w-[300px]",
-    sizes: "300px",
+    intrinsicWidth: 300,
+    intrinsicHeight: 250,
+    outerClass: "mx-auto w-full max-w-[300px]",
+    // Sidebar biasanya kotak, jadi kasih h yang mendekati square (280px)
+    innerClass: "relative w-full h-[280px]",
   },
   INLINE: {
-    aspectRatio: "600 / 200",
-    maxWidthClass: "max-w-[600px]",
-    sizes: "(max-width: 640px) 100vw, 600px",
+    intrinsicWidth: 600,
+    intrinsicHeight: 200,
+    outerClass: "mx-auto w-full max-w-[600px]",
+    // Inline biasanya medium rectangle, 240px cukup
+    innerClass: "relative w-full h-56 sm:h-60",
   },
 };
 
@@ -74,8 +79,7 @@ const AD_DIMENSIONS: Record<
  * - Rotate tiap X detik (default 15 detik)
  * - Track impression lewat IntersectionObserver (cuma count kalau visible)
  * - Track impression tiap iklan cuma sekali per session
- * - Ukuran dikunci pakai kotak aspect-ratio tetap per posisi (lihat AD_DIMENSIONS)
- *   — gambar apa pun rasionya tidak akan pernah membuat kotak membengkak.
+ * - Height iklan di-LOCK per posisi (tidak bisa dibocorkan gambar tinggi)
  */
 export function AdRotator({ ads, position, rotateIntervalMs = 15000 }: Props) {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -159,30 +163,26 @@ export function AdRotator({ ads, position, rotateIntervalMs = 15000 }: Props) {
       </div>
 
       {/*
-        Struktur wrapper (revisi):
-        - <a>   = link click + batas lebar maksimum (max-w) + overflow-hidden
-        - <div> = KOTAK dengan aspect-ratio TETAP sesuai ukuran resmi slot —
-                  ini yang mengunci tinggi, bukan mengikuti tinggi file gambar
-        - <Image fill> = mengisi kotak, object-contain (tidak dipotong,
-                  tidak bikin kotak membengkak, cukup letterbox kalau rasio beda)
+        STRUKTUR:
+        - <a>       : batasi WIDTH per posisi (max-w)
+        - <div>     : LOCK HEIGHT per posisi (h fixed)
+        - <Image>   : fill container, object-contain biar rasio asli terjaga
+                      (bakal ada letterbox kalau rasio gambar beda dari box)
       */}
       <a
         href={`/api/ads/${currentAd.id}/click`}
         target="_blank"
         rel="noopener noreferrer sponsored"
-        className={`mx-auto block w-full overflow-hidden rounded-xl border border-neutral-200 bg-white transition hover:opacity-90 dark:border-neutral-800 dark:bg-neutral-900 ${dims.maxWidthClass}`}
+        className={`block overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 transition hover:opacity-90 dark:border-neutral-800 dark:bg-neutral-900 ${dims.outerClass}`}
         aria-label={`Iklan ${currentAd.advertiserName}`}
       >
-        <div
-          className="relative w-full bg-neutral-50 dark:bg-neutral-800/40"
-          style={{ aspectRatio: dims.aspectRatio }}
-        >
+        <div className={dims.innerClass}>
           <Image
             key={currentAd.id}
             src={currentAd.mediaUrl ?? "/images/placeholder-ad.png"}
             alt={`Iklan ${currentAd.advertiserName}`}
             fill
-            sizes={dims.sizes}
+            sizes={`(max-width: 640px) 100vw, ${dims.intrinsicWidth}px`}
             className="object-contain animate-fade-in"
             unoptimized
           />
