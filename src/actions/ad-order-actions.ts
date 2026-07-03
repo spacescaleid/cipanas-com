@@ -30,10 +30,9 @@ export type ActionResult<T = void> =
 // ─── Helper: Ambil pesan error pertama dari ZodError ─────────────────────────
 
 function getFirstZodError(error: ZodError): string {
-  // Zod v3 pakai .errors, Zod v4 pakai .issues
-  // Kita cek keduanya untuk kompatibilitas
   const issues =
-    "issues" in error && Array.isArray((error as unknown as { issues: unknown[] }).issues)
+    "issues" in error &&
+    Array.isArray((error as unknown as { issues: unknown[] }).issues)
       ? (error as unknown as { issues: Array<{ message: string }> }).issues
       : (error as unknown as { errors: Array<{ message: string }> }).errors;
 
@@ -186,15 +185,21 @@ export async function submitCreativeAction(
     imageSizeBytes,
   } = parsed.data;
 
-  const dimValidation = validateAdImageDimensions(
+  // ═══════════════════════════════════════════════════════════════
+  // VALIDASI CLIENT-SIDE (dari data yang dikirim client)
+  // Ini validasi cepat untuk reject request obvious sebelum upload.
+  // TIDAK BOLEH sepenuhnya percaya — akan divalidasi ulang setelah
+  // upload dengan data asli dari Cloudinary di bawah.
+  // ═══════════════════════════════════════════════════════════════
+  const clientDimValidation = validateAdImageDimensions(
     imageWidth,
     imageHeight,
     order.slot.position,
     imageSizeBytes
   );
 
-  if (!dimValidation.valid) {
-    return { success: false, error: dimValidation.error! };
+  if (!clientDimValidation.valid) {
+    return { success: false, error: clientDimValidation.error! };
   }
 
   // Hapus gambar lama jika ada
@@ -209,7 +214,9 @@ export async function submitCreativeAction(
     }
   }
 
+  // ═══════════════════════════════════════════════════════════════
   // Upload ke Cloudinary
+  // ═══════════════════════════════════════════════════════════════
   let uploadResult;
   try {
     uploadResult = await uploadAdImage(
@@ -220,10 +227,42 @@ export async function submitCreativeAction(
     console.error("Cloudinary upload error:", err);
     return {
       success: false,
-      error: "Gagal mengupload gambar. Pastikan format JPEG/PNG/WebP dan coba lagi.",
+      error:
+        "Gagal mengupload gambar. Pastikan format JPEG/PNG/WebP dan coba lagi.",
     };
   }
 
+  // ═══════════════════════════════════════════════════════════════
+  // 🔒 VALIDASI SERVER-SIDE (dari data Cloudinary asli)
+  // Ini pertahanan sebenarnya — data dari Cloudinary tidak bisa
+  // dimanipulasi client. Kalau tidak lulus, hapus gambar & tolak.
+  // ═══════════════════════════════════════════════════════════════
+  const serverDimValidation = validateAdImageDimensions(
+    uploadResult.width,
+    uploadResult.height,
+    order.slot.position,
+    uploadResult.bytes
+  );
+
+  if (!serverDimValidation.valid) {
+    // Rollback: hapus gambar yang sudah terupload karena gagal validasi
+    try {
+      await deleteAdImage(uploadResult.publicId);
+    } catch {
+      console.warn(
+        "Gagal rollback gambar setelah gagal validasi:",
+        uploadResult.publicId
+      );
+    }
+    return {
+      success: false,
+      error: `Ukuran gambar tidak sesuai: ${serverDimValidation.error}`,
+    };
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // Simpan ke database
+  // ═══════════════════════════════════════════════════════════════
   try {
     await prisma.adOrder.update({
       where: { id: order.id },
@@ -238,6 +277,15 @@ export async function submitCreativeAction(
     });
   } catch (err) {
     console.error("DB update error setelah upload:", err);
+    // Rollback: hapus gambar dari Cloudinary karena DB gagal
+    try {
+      await deleteAdImage(uploadResult.publicId);
+    } catch {
+      console.warn(
+        "Gagal rollback gambar setelah DB error:",
+        uploadResult.publicId
+      );
+    }
     return { success: false, error: "Gagal menyimpan data, hubungi admin" };
   }
 

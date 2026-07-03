@@ -10,19 +10,70 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'images.unsplash.com',
       },
-      // untuk development/dummy image
       {
         protocol: 'https',
         hostname: 'picsum.photos',
       },
     ],
   },
-  // Aktifkan experimental features jika perlu
   experimental: {
     serverActions: {
-      allowedOrigins: ['localhost:3000'],
+      // ⚠️ GANTI domain production sebelum deploy
+      allowedOrigins: [
+        'localhost:3000',
+        'cipanas.com',
+        'www.cipanas.com',
+        // Tambah domain Vercel preview kalau perlu:
+        // '*.vercel.app',
+      ],
     },
   },
-}
+  // 🔒 Security Headers
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'X-Frame-Options',
+            value: 'DENY',
+          },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+          {
+            key: 'Referrer-Policy',
+            value: 'strict-origin-when-cross-origin',
+          },
+          {
+            key: 'X-DNS-Prefetch-Control',
+            value: 'on',
+          },
+          {
+            key: 'Strict-Transport-Security',
+            value: 'max-age=31536000; includeSubDomains',
+          },
+          {
+            key: 'Permissions-Policy',
+            value: 'camera=(), microphone=(), geolocation=()',
+          },
+          {
+            key: 'Content-Security-Policy',
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+              "style-src 'self' 'unsafe-inline'",
+              "img-src 'self' data: https://res.cloudinary.com https://picsum.photos https://images.unsplash.com",
+              "font-src 'self'",
+              "connect-src 'self' https://res.cloudinary.com https://api.cloudinary.com",
+              "frame-ancestors 'none'",
+            ].join('; '),
+          },
+        ],
+      },
+    ];
+  },
+};
 
-module.exports = nextConfig
+module.exports = nextConfig;

@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { updateArticleSchema } from "@/lib/article-schema";
+import { sanitizeArticleHtml, sanitizeText } from "@/lib/sanitize";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -59,11 +60,22 @@ export async function PATCH(request: Request, { params }: RouteContext) {
 
     const { title, content, coverImage, categoryId, action } = parsed.data;
 
+    // ⚠️ Sanitasi input sebelum simpan (defense in depth)
+    const safeTitle = sanitizeText(title).trim();
+    const safeContent = sanitizeArticleHtml(content);
+
+    if (safeTitle.length < 5) {
+      return NextResponse.json(
+        { error: "Judul terlalu pendek setelah sanitasi" },
+        { status: 400 }
+      );
+    }
+
     const article = await prisma.article.update({
       where: { id },
       data: {
-        title,
-        content,
+        title: safeTitle,
+        content: safeContent, // ← sanitized
         coverImage: coverImage || null,
         categoryId,
         status: action,

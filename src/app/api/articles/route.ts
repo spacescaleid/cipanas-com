@@ -6,6 +6,7 @@ import slugify from "slugify";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { createArticleSchema } from "@/lib/article-schema";
+import { sanitizeArticleHtml, sanitizeText } from "@/lib/sanitize";
 
 async function generateUniqueSlug(title: string): Promise<string> {
   const base = slugify(title, { lower: true, strict: true, locale: "id" });
@@ -48,6 +49,17 @@ export async function POST(request: Request) {
 
     const { title, content, coverImage, categoryId, action } = parsed.data;
 
+    // ⚠️ Sanitasi input sebelum simpan (defense in depth)
+    const safeTitle = sanitizeText(title).trim();
+    const safeContent = sanitizeArticleHtml(content);
+
+    if (safeTitle.length < 5) {
+      return NextResponse.json(
+        { error: "Judul terlalu pendek setelah sanitasi" },
+        { status: 400 }
+      );
+    }
+
     // Validasi category exists
     const category = await prisma.category.findUnique({
       where: { id: categoryId },
@@ -59,13 +71,13 @@ export async function POST(request: Request) {
       );
     }
 
-    const slug = await generateUniqueSlug(title);
+    const slug = await generateUniqueSlug(safeTitle);
 
     const article = await prisma.article.create({
       data: {
-        title,
+        title: safeTitle,
         slug,
-        content,
+        content: safeContent, // ← sanitized
         coverImage: coverImage || null,
         categoryId,
         authorId: session.user.id,
