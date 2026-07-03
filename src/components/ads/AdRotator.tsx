@@ -20,52 +20,52 @@ interface Props {
 /**
  * Konfigurasi ukuran iklan per posisi.
  *
- * FILOSOFI: batasi HANYA lebar (max-width), biarkan tinggi mengikuti
- * aspect ratio asli gambar. Kalau pengiklan upload gambar dengan aspek
- * mendekati ukuran resmi slot, gambar akan pas. Kalau upload dengan
- * aspek berbeda, gambar tetap ditampilkan utuh (tidak terpotong),
- * cuma jadi lebih tinggi/pendek.
+ * FILOSOFI (revisi): pakai kotak dengan ASPECT RATIO TETAP sesuai ukuran
+ * resmi slot (728:90, 300:250, 600:200), bukan "max-height safety net"
+ * yang gampang dilonggarin lagi dan gampang bocor di CSS.
  *
- * Tinggi maksimum diterapkan sebagai SAFETY NET (max-h) supaya kalau
- * ada pengiklan upload gambar super-tinggi (misal 500x2000), tidak
- * memakan seluruh layar. Kalau kena limit ini, pakai object-contain
- * biar gambar center di dalam wrapper (ada whitespace atas-bawah,
- * daripada terpotong).
+ * Dengan aspect-ratio tetap + `fill` + `object-contain`:
+ * - Tinggi kotak SELALU mengikuti rumus (lebar kotak ÷ rasio) — tidak
+ *   pernah bisa membengkak lebih dari itu, apa pun ukuran file gambar
+ *   yang diupload pengiklan (beda dengan pendekatan `h-auto` sebelumnya
+ *   yang tingginya ikut aspect ratio FILE ASLI, bukan aspect ratio SLOT).
+ * - Kalau gambar pengiklan rasionya beda dari slot, `object-contain`
+ *   bikin gambar di-scale utuh (tidak terpotong) dan center di kotak —
+ *   ada sedikit ruang kosong di kiri-kanan/atas-bawah (letterbox),
+ *   bukan gambar jadi gepeng ATAU kotak jadi membengkak.
+ * - Ruang letterbox dikasih background halus (`bg-neutral-50`) supaya
+ *   tetap enak dilihat, tidak terasa seperti bug.
  */
 const AD_DIMENSIONS: Record<
   AdPosition,
   {
-    intrinsicWidth: number;
-    intrinsicHeight: number;
-    /** Class untuk wrapper <a> — cuma batasi width, tinggi ikut natural */
-    wrapperClass: string;
-    /** Safety net tinggi maksimum (kalau gambar ekstrem) */
-    safetyMaxHeight: string;
+    /** Rasio lebar:tinggi resmi slot ini, dipakai sebagai CSS aspect-ratio */
+    aspectRatio: string;
+    /** Class pembatas lebar maksimum kotak iklan */
+    maxWidthClass: string;
+    /** Ukuran untuk atribut `sizes` next/image (optimasi + hindari CLS) */
+    sizes: string;
   }
 > = {
   HEADER: {
-    intrinsicWidth: 728,
-    intrinsicHeight: 90,
-    wrapperClass: "mx-auto w-full max-w-[728px]",
-    safetyMaxHeight: "max-h-[200px]", // fallback kalau upload gambar tinggi
+    aspectRatio: "728 / 90",
+    maxWidthClass: "max-w-[728px]",
+    sizes: "(max-width: 768px) 100vw, 728px",
   },
   FOOTER: {
-    intrinsicWidth: 728,
-    intrinsicHeight: 90,
-    wrapperClass: "mx-auto w-full max-w-[728px]",
-    safetyMaxHeight: "max-h-[200px]",
+    aspectRatio: "728 / 90",
+    maxWidthClass: "max-w-[728px]",
+    sizes: "(max-width: 768px) 100vw, 728px",
   },
   SIDEBAR: {
-    intrinsicWidth: 300,
-    intrinsicHeight: 250,
-    wrapperClass: "mx-auto w-full max-w-[300px]",
-    safetyMaxHeight: "max-h-[400px]",
+    aspectRatio: "300 / 250",
+    maxWidthClass: "max-w-[300px]",
+    sizes: "300px",
   },
   INLINE: {
-    intrinsicWidth: 600,
-    intrinsicHeight: 200,
-    wrapperClass: "mx-auto w-full max-w-[600px]",
-    safetyMaxHeight: "max-h-[350px]",
+    aspectRatio: "600 / 200",
+    maxWidthClass: "max-w-[600px]",
+    sizes: "(max-width: 640px) 100vw, 600px",
   },
 };
 
@@ -74,7 +74,8 @@ const AD_DIMENSIONS: Record<
  * - Rotate tiap X detik (default 15 detik)
  * - Track impression lewat IntersectionObserver (cuma count kalau visible)
  * - Track impression tiap iklan cuma sekali per session
- * - Ukuran gambar dibatasi WIDTH per posisi, tinggi ikut natural
+ * - Ukuran dikunci pakai kotak aspect-ratio tetap per posisi (lihat AD_DIMENSIONS)
+ *   — gambar apa pun rasionya tidak akan pernah membuat kotak membengkak.
  */
 export function AdRotator({ ads, position, rotateIntervalMs = 15000 }: Props) {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -158,26 +159,31 @@ export function AdRotator({ ads, position, rotateIntervalMs = 15000 }: Props) {
       </div>
 
       {/*
-        Struktur wrapper:
-        - <a> = link click, cuma batasi WIDTH (tinggi ikut natural gambar)
-        - <div safetyMaxHeight> = safety net kalau gambar ekstrem
-        - <Image> = tampil dengan aspek asli, tidak dipaksa fit ke box
+        Struktur wrapper (revisi):
+        - <a>   = link click + batas lebar maksimum (max-w) + overflow-hidden
+        - <div> = KOTAK dengan aspect-ratio TETAP sesuai ukuran resmi slot —
+                  ini yang mengunci tinggi, bukan mengikuti tinggi file gambar
+        - <Image fill> = mengisi kotak, object-contain (tidak dipotong,
+                  tidak bikin kotak membengkak, cukup letterbox kalau rasio beda)
       */}
       <a
         href={`/api/ads/${currentAd.id}/click`}
         target="_blank"
         rel="noopener noreferrer sponsored"
-        className={`block overflow-hidden rounded-xl border border-neutral-200 bg-white transition hover:opacity-90 dark:border-neutral-800 dark:bg-neutral-900 ${dims.wrapperClass}`}
+        className={`mx-auto block w-full overflow-hidden rounded-xl border border-neutral-200 bg-white transition hover:opacity-90 dark:border-neutral-800 dark:bg-neutral-900 ${dims.maxWidthClass}`}
         aria-label={`Iklan ${currentAd.advertiserName}`}
       >
-        <div className={`flex items-center justify-center ${dims.safetyMaxHeight}`}>
+        <div
+          className="relative w-full bg-neutral-50 dark:bg-neutral-800/40"
+          style={{ aspectRatio: dims.aspectRatio }}
+        >
           <Image
             key={currentAd.id}
             src={currentAd.mediaUrl ?? "/images/placeholder-ad.png"}
             alt={`Iklan ${currentAd.advertiserName}`}
-            width={dims.intrinsicWidth}
-            height={dims.intrinsicHeight}
-            className="h-auto w-full object-contain animate-fade-in"
+            fill
+            sizes={dims.sizes}
+            className="object-contain animate-fade-in"
             unoptimized
           />
         </div>
