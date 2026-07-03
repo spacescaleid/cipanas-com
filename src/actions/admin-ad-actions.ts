@@ -7,6 +7,10 @@ import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { generateUploadToken, getUploadTokenExpiry } from "@/lib/ad-utils";
 import { rejectCreativeSchema } from "@/lib/ad-schemas";
+import {
+  extractPublicIdFromUrl,
+  deleteAdImage,
+} from "@/lib/cloudinary-upload";
 import type { ActionResult } from "./ad-order-actions";
 import type { AdOrderStatus } from "@prisma/client";
 
@@ -303,7 +307,76 @@ export async function expireOrderAction(
   return { success: true, data: undefined };
 }
 
-// ─── 5. Ambil Semua Order ─────────────────────────────────────────────────────
+// ─── 5. Hapus Iklan Permanent (untuk EXPIRED/REJECTED) ──────────────────────
+
+export async function deleteAdOrderAction(
+  orderId: string
+): Promise<ActionResult> {
+  let adminUser;
+  try {
+    adminUser = await requireAdmin();
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+
+  const order = await prisma.adOrder.findUnique({ where: { id: orderId } });
+  if (!order) return { success: false, error: "Order tidak ditemukan" };
+
+  // Hanya boleh hapus iklan yang sudah EXPIRED atau REJECTED
+  // Iklan yang masih aktif/pending TIDAK BOLEH dihapus (harus expire dulu)
+  const deletableStatuses: AdOrderStatus[] = ["EXPIRED", "REJECTED"];
+
+  if (!deletableStatuses.includes(order.status)) {
+    return {
+      success: false,
+      error: `Hanya iklan berstatus EXPIRED atau REJECTED yang bisa dihapus. Status saat ini: ${order.status}. Kalau iklan masih aktif, gunakan tombol "Hentikan Sekarang" dulu.`,
+    };
+  }
+
+  // Hapus gambar dari Cloudinary kalau ada (best-effort)
+  if (order.imageUrl) {
+    const publicId = extractPublicIdFromUrl(order.imageUrl);
+    if (publicId) {
+      try {
+        await deleteAdImage(publicId);
+      } catch {
+        console.warn(
+          "Gagal hapus gambar dari Cloudinary saat delete order:",
+          publicId
+        );
+        // Non-fatal: lanjut hapus order di DB
+      }
+    }
+  }
+
+  // Simpan info untuk log sebelum record dihapus
+  const orderInfoForLog = `${order.id} (${order.orderCode ?? order.id}) - ${order.status}`;
+
+  // Hapus order dari DB (cascade akan hapus Payment records terkait)
+  try {
+    await prisma.adOrder.delete({ where: { id: orderId } });
+  } catch (err) {
+    console.error("Delete adOrder error:", err);
+    return {
+      success: false,
+      error: "Gagal menghapus order dari database",
+    };
+  }
+
+  await prisma.activityLog.create({
+    data: {
+      userId: adminUser.id,
+      action: "DELETE_AD_ORDER",
+      target: `AdOrder:${orderInfoForLog}`,
+    },
+  });
+
+  revalidatePath("/admin/iklan");
+
+  return { success: true, data: undefined };
+}
+
+// ─── 6. Ambil Semua Order ─────────────────────────────────────────────────────
 
 export async function getAllAdOrders(statusFilter?: string) {
   const validStatuses: AdOrderStatus[] = [
@@ -333,7 +406,7 @@ export async function getAllAdOrders(statusFilter?: string) {
   return orders;
 }
 
-// ─── 6. Ambil Detail Satu Order ───────────────────────────────────────────────
+// ─── 7. Ambil Detail Satu Order ───────────────────────────────────────────────
 
 export async function getAdOrderDetail(id: string) {
   return prisma.adOrder.findUnique({

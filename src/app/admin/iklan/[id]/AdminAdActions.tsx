@@ -8,12 +8,14 @@ import {
   useTransition,
   useRef,
 } from "react";
+import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import {
   verifyPaymentAction,
   approveCreativeAction,
   rejectCreativeAction,
   expireOrderAction,
+  deleteAdOrderAction,
 } from "@/actions/admin-ad-actions";
 import { buildUploadInviteMessage, buildWhatsAppLink } from "@/lib/ad-utils";
 import { CopyButton } from "@/components/ui/CopyButton";
@@ -43,10 +45,20 @@ function buildInitialVerifyResult(params: {
   advertiserName: string;
   orderCode: string;
 }): VerifyResult | null {
-  const { status, existingUploadToken, existingTokenExpiry, advertiserName, orderCode } = params;
+  const {
+    status,
+    existingUploadToken,
+    existingTokenExpiry,
+    advertiserName,
+    orderCode,
+  } = params;
 
   if (typeof window === "undefined") return null;
-  if (status !== "AWAITING_CREATIVE" || !existingUploadToken || !existingTokenExpiry) {
+  if (
+    status !== "AWAITING_CREATIVE" ||
+    !existingUploadToken ||
+    !existingTokenExpiry
+  ) {
     return null;
   }
 
@@ -76,13 +88,13 @@ export function AdminAdActions({
   existingUploadToken,
   existingTokenExpiry,
 }: AdminAdActionsProps) {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
-  // Normalize nullable values ke string dengan fallback
+  // Normalize nullable values
   const safeAdvertiserName = advertiserName ?? "Pengiklan";
   const safeWhatsappNumber = whatsappNumber ?? "";
 
-  // Lazy init verify result (tidak pakai useEffect + setState)
   const [verifyResult, setVerifyResult] = useState<VerifyResult | null>(() =>
     buildInitialVerifyResult({
       status,
@@ -134,14 +146,36 @@ export function AdminAdActions({
     });
   };
 
-  // ─── Expire ──────────────────────────────────────────────────────────
+  // ─── Expire (Mark iklan aktif jadi EXPIRED) ─────────────────────────
   const handleExpire = () => {
-    if (!confirm("Tandai order ini sebagai kadaluarsa?")) return;
+    if (!confirm("Tandai order ini sebagai kadaluarsa? Iklan akan berhenti tayang.")) return;
     startTransition(async () => {
       const result = await expireOrderAction(orderId);
       if (result.success) {
         toast.success("Order ditandai kadaluarsa");
         window.location.reload();
+      } else {
+        toast.error(result.error);
+      }
+    });
+  };
+
+  // ─── Delete Permanent (hapus dari DB, hanya untuk EXPIRED/REJECTED) ─
+  const handleDelete = () => {
+    const confirmMsg =
+      "⚠️ HAPUS PERMANENT?\n\n" +
+      "Iklan ini akan dihapus PERMANENT dari database beserta gambar-nya.\n" +
+      "Aksi ini TIDAK BISA di-undo.\n\n" +
+      "Lanjutkan?";
+
+    if (!confirm(confirmMsg)) return;
+
+    startTransition(async () => {
+      const result = await deleteAdOrderAction(orderId);
+      if (result.success) {
+        toast.success("Iklan berhasil dihapus permanent");
+        // Redirect ke list karena order sudah tidak ada
+        router.push("/admin/iklan");
       } else {
         toast.error(result.error);
       }
@@ -154,17 +188,14 @@ export function AdminAdActions({
     null
   );
 
-  // Track processed reject state — hindari re-process saat re-render
   const processedRejectStateRef = useRef<typeof rejectState>(null);
 
   useEffect(() => {
-    // Skip kalau rejectState belum berubah dari sebelumnya
     if (rejectState === processedRejectStateRef.current) return;
     processedRejectStateRef.current = rejectState;
 
     if (rejectState?.success) {
       toast.success("Materi ditolak. Pengiklan bisa upload ulang.");
-      // Wrap setState di startTransition untuk hindari cascading render warning
       startTransition(() => {
         setShowRejectForm(false);
       });
@@ -196,7 +227,7 @@ export function AdminAdActions({
         </div>
       )}
 
-      {/* ─── Link Upload ────────────────────────────────────────────────── */}
+      {/* ─── Link Upload (setelah verifikasi / AWAITING_CREATIVE) ────── */}
       {verifyResult && (
         <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-5 space-y-4">
           <div>
@@ -255,15 +286,13 @@ export function AdminAdActions({
               ⚠️ <strong>Keterbatasan:</strong> WhatsApp tidak memungkinkan
               pengiriman pesan otomatis tanpa WhatsApp Business API (berbayar).
               Anda perlu menyalin pesan di atas dan mengirimnya secara manual
-              ke pengiklan. Tombol &quot;Buka WA Pengiklan&quot; akan membuka
-              WhatsApp dengan nomor pengiklan, tapi pesan perlu di-paste secara
-              manual.
+              ke pengiklan.
             </p>
           </div>
         </div>
       )}
 
-      {/* ─── Review Materi ──────────────────────────────────────────────── */}
+      {/* ─── Review Materi (PENDING_REVIEW) ─────────────────────────────── */}
       {status === "PENDING_REVIEW" && (
         <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-xl p-5 space-y-3">
           <h3 className="font-semibold text-purple-900 dark:text-purple-100">
@@ -316,8 +345,90 @@ export function AdminAdActions({
         </div>
       )}
 
-      {/* ─── Expire Manual ───────────────────────────────────────────────── */}
-      {["PENDING_PAYMENT", "AWAITING_CREATIVE", "ACTIVE"].includes(status) && (
+      {/* ─── Status ACTIVE: Info & Aksi Hentikan ─────────────────────── */}
+      {status === "ACTIVE" && (
+        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-5">
+          <h3 className="font-semibold text-green-900 dark:text-green-100 mb-2">
+            ✅ Iklan Sedang Aktif Tayang
+          </h3>
+          <p className="text-sm text-green-800 dark:text-green-200 mb-4">
+            Iklan ini sedang tayang di website dan sudah masuk pool rotasi.
+            Sistem otomatis akan menandai kadaluarsa saat tanggal selesai tiba.
+          </p>
+          <p className="text-xs text-green-700 dark:text-green-300 mb-4">
+            💡 Kamu bisa manual mark iklan ini kadaluarsa sekarang kalau ada
+            permintaan pengiklan atau pelanggaran konten.
+          </p>
+          <button
+            onClick={handleExpire}
+            disabled={isPending}
+            className="bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white font-semibold py-2 px-5 rounded-lg transition-colors text-sm"
+          >
+            {isPending ? "Memproses..." : "🛑 Hentikan Sekarang (Mark Expired)"}
+          </button>
+        </div>
+      )}
+
+      {/* ─── Status EXPIRED: Info + Tombol Hapus Permanent ─────────── */}
+      {status === "EXPIRED" && (
+        <div className="bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5 space-y-4">
+          <div>
+            <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              ⏰ Iklan Kedaluarsa
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Iklan ini sudah tidak tayang lagi. Periode tayang telah berakhir
+              atau di-stop manual oleh admin.
+            </p>
+          </div>
+
+          <div className="border-t border-gray-300 dark:border-gray-700 pt-4">
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+              🗑️ Kalau iklan ini sudah tidak dibutuhkan, kamu bisa hapus
+              permanent (menghapus record + gambar dari Cloudinary).
+            </p>
+            <button
+              onClick={handleDelete}
+              disabled={isPending}
+              className="bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white font-semibold py-2 px-5 rounded-lg transition-colors text-sm"
+            >
+              {isPending ? "Menghapus..." : "🗑️ Hapus Permanent"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Status REJECTED: Info + Tombol Hapus Permanent ────────── */}
+      {status === "REJECTED" && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-5 space-y-4">
+          <div>
+            <h3 className="font-semibold text-red-900 dark:text-red-100 mb-2">
+              ❌ Iklan Ditolak
+            </h3>
+            <p className="text-sm text-red-800 dark:text-red-200">
+              Iklan ini ditolak dan tidak akan tayang. Pengiklan perlu upload
+              materi baru atau hubungi admin untuk klarifikasi.
+            </p>
+          </div>
+
+          <div className="border-t border-red-300 dark:border-red-700 pt-4">
+            <p className="text-xs text-red-700 dark:text-red-300 mb-2">
+              🗑️ Kalau iklan ini sudah tidak dibutuhkan, kamu bisa hapus
+              permanent (menghapus record + gambar dari Cloudinary).
+            </p>
+            <button
+              onClick={handleDelete}
+              disabled={isPending}
+              className="bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white font-semibold py-2 px-5 rounded-lg transition-colors text-sm"
+            >
+              {isPending ? "Menghapus..." : "🗑️ Hapus Permanent"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Expire Manual (untuk PENDING_PAYMENT & AWAITING_CREATIVE) ─ */}
+      {["PENDING_PAYMENT", "AWAITING_CREATIVE"].includes(status) && (
         <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-4">
           <p className="text-xs text-gray-500 mb-2">Aksi Darurat</p>
           <button
@@ -325,7 +436,7 @@ export function AdminAdActions({
             disabled={isPending}
             className="text-xs text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 border border-gray-300 dark:border-gray-600 hover:border-red-300 py-1.5 px-3 rounded-lg transition-colors"
           >
-            Tandai Kedaluarsa
+            Batalkan Order
           </button>
         </div>
       )}

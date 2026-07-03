@@ -15,22 +15,28 @@ import { formatRelativeTime } from "@/lib/format";
 import { RunCronButton } from "@/components/admin/RunCronButton";
 
 const actionLabels: Record<string, string> = {
+    // Article actions
     APPROVE_ARTICLE: "menyetujui artikel",
     REJECT_ARTICLE: "menolak artikel",
     REQUEST_REVISION: "meminta revisi artikel",
     UNPUBLISH_ARTICLE: "menurunkan artikel",
     DELETE_ARTICLE: "menghapus artikel",
+    // Category actions
     CREATE_CATEGORY: "membuat kategori",
     UPDATE_CATEGORY: "mengubah kategori",
     DELETE_CATEGORY: "menghapus kategori",
+    // User actions
     CHANGE_USER_ROLE: "mengubah role user",
     DELETE_USER: "menghapus user",
+    // Legacy ad actions (dari sistem lama, dipertahankan untuk backward compat log)
     APPROVE_AD: "menyetujui iklan",
     REJECT_AD: "menolak iklan",
+    // Ad actions (sistem WA-manual)
     VERIFY_AD_PAYMENT: "memverifikasi pembayaran iklan",
     APPROVE_AD_CREATIVE: "menyetujui materi iklan",
     REJECT_AD_CREATIVE: "menolak materi iklan",
     EXPIRE_AD_ORDER: "menandai iklan kadaluarsa",
+    DELETE_AD_ORDER: "menghapus iklan permanent",
 };
 
 export default async function AdminOverviewPage() {
@@ -133,10 +139,32 @@ export default async function AdminOverviewPage() {
                 <div className="flex items-center justify-between gap-4">
                     <div className="flex-1">
                         <h3 className="font-serif text-lg font-bold text-neutral-900 dark:text-white">
-                            Cron Iklan
+                            Cron Iklan (Auto-Expire)
                         </h3>
                         <p className="mt-1 text-xs text-neutral-500">
-                            Trigger manual untuk update status iklan (auto-expire iklan yang sudah lewat endDate).
+                            Trigger manual untuk scan iklan{" "}
+                            <span className="font-mono font-semibold text-neutral-700 dark:text-neutral-300">
+                                ACTIVE
+                            </span>{" "}
+                            yang{" "}
+                            <span className="font-semibold text-neutral-700 dark:text-neutral-300">
+                                endDate-nya sudah lewat
+                            </span>{" "}
+                            dan ubah status jadi{" "}
+                            <span className="font-mono font-semibold text-neutral-700 dark:text-neutral-300">
+                                EXPIRED
+                            </span>
+                            . Iklan yang masih dalam periode tayang{" "}
+                            <strong>tidak akan tersentuh</strong>. Untuk stop iklan
+                            aktif manual atau hapus iklan expired, buka detail iklan
+                            di{" "}
+                            <Link
+                                href="/admin/iklan"
+                                className="font-mono text-brand-600 hover:underline dark:text-brand-400"
+                            >
+                                /admin/iklan
+                            </Link>
+                            .
                         </p>
                     </div>
                     <RunCronButton />
