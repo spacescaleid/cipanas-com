@@ -3,6 +3,7 @@
 
 import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
+import Image from "next/image";
 import { useState, useRef, useEffect } from "react";
 import { LogOut, LayoutDashboard, Shield, User as UserIcon } from "lucide-react";
 
@@ -51,6 +52,9 @@ export function UserMenu() {
   const dashboardHref = isAdmin ? "/admin" : "/dashboard";
   const dashboardLabel = isAdmin ? "Panel Admin" : "Dashboard";
   const DashboardIcon = isAdmin ? Shield : LayoutDashboard;
+  const userImage = session.user.image;
+  const userName = session.user.name ?? "User";
+  const initial = userName.charAt(0).toUpperCase();
 
   return (
     <div className="relative" ref={menuRef}>
@@ -58,24 +62,57 @@ export function UserMenu() {
         onClick={() => setOpen(!open)}
         className="flex items-center gap-2 rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-sm transition hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900 dark:hover:bg-neutral-800"
       >
-        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-600 text-xs font-bold text-white">
-          {session.user.name?.charAt(0).toUpperCase() ?? "U"}
+        {/* Avatar: foto profil kalau ada, fallback ke initial huruf */}
+        <div className="relative h-6 w-6 shrink-0 overflow-hidden rounded-full bg-brand-600">
+          {userImage ? (
+            <Image
+              src={userImage}
+              alt={userName}
+              fill
+              sizes="24px"
+              className="object-cover"
+            />
+          ) : (
+            <span className="flex h-full w-full items-center justify-center text-xs font-bold text-white">
+              {initial}
+            </span>
+          )}
         </div>
         <span className="hidden max-w-[120px] truncate text-neutral-700 dark:text-neutral-200 sm:inline">
-          {session.user.name}
+          {userName}
         </span>
       </button>
 
       {open && (
         <div className="absolute right-0 top-full z-40 mt-2 w-56 overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
+          {/* Header dropdown: avatar besar + info user */}
           <div className="border-b border-neutral-100 px-4 py-3 dark:border-neutral-800">
-            <div className="truncate text-sm font-semibold text-neutral-900 dark:text-white">
-              {session.user.name}
+            <div className="flex items-center gap-3">
+              <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-brand-600">
+                {userImage ? (
+                  <Image
+                    src={userImage}
+                    alt={userName}
+                    fill
+                    sizes="40px"
+                    className="object-cover"
+                  />
+                ) : (
+                  <span className="flex h-full w-full items-center justify-center text-sm font-bold text-white">
+                    {initial}
+                  </span>
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-semibold text-neutral-900 dark:text-white">
+                  {userName}
+                </div>
+                <div className="mt-0.5 truncate text-xs text-neutral-500">
+                  {session.user.email}
+                </div>
+              </div>
             </div>
-            <div className="mt-0.5 truncate text-xs text-neutral-500">
-              {session.user.email}
-            </div>
-            <div className="mt-1 inline-block rounded bg-brand-100 px-1.5 py-0.5 text-[10px] font-semibold text-brand-700 dark:bg-brand-900/40 dark:text-brand-300">
+            <div className="mt-2 inline-block rounded bg-brand-100 px-1.5 py-0.5 text-[10px] font-semibold text-brand-700 dark:bg-brand-900/40 dark:text-brand-300">
               {role}
             </div>
           </div>

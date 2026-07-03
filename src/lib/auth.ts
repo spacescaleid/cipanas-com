@@ -118,17 +118,48 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    /**
+     * JWT callback dipanggil di 3 kondisi:
+     * 1. Initial sign in (ada `user`) → populate token dari user
+     * 2. Update trigger (`trigger === "update"`) → refresh token dari session data
+     * 3. Setiap request → return token as-is (kalau tidak ada mutation)
+     */
+    async jwt({ token, user, trigger, session }) {
+      // 1. Initial sign in
       if (user) {
         token.id = user.id;
         token.role = user.role;
+        token.name = user.name;
+        token.image = user.image;
       }
+
+      // 2. Update trigger (dari useSession().update(data))
+      // Dipakai untuk sync data profile terbaru tanpa perlu re-login.
+      // Contoh: updateSession({ name: "New Name", image: "url..." })
+      if (trigger === "update" && session) {
+        const updateData = session as Partial<{
+          name: string;
+          image: string | null;
+        }>;
+        if (updateData.name !== undefined) {
+          token.name = updateData.name;
+        }
+        if (updateData.image !== undefined) {
+          token.image = updateData.image;
+        }
+      }
+
       return token;
     },
+    /**
+     * Session callback: expose data dari token ke client via useSession().
+     */
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id;
         session.user.role = token.role;
+        session.user.name = token.name as string;
+        session.user.image = token.image as string | null;
       }
       return session;
     },
