@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   PenSquare,
   FileText,
+  Video,
   User,
   TrendingUp,
   Bell,
@@ -19,17 +20,15 @@ export default async function DashboardLayout({
 }) {
   const session = await requireRole(["CONTRIBUTOR", "ADMIN", "SUPER_ADMIN"]);
 
-  // src/app/dashboard/layout.tsx
-// Ganti bagian navItems saja:
-
-const navItems = [
-  { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
-  { href: "/dashboard/tulis", label: "Tulis Berita", icon: PenSquare },
-  { href: "/dashboard/tulisan", label: "Tulisan Saya", icon: FileText },
-  { href: "/dashboard/statistik", label: "Statistik", icon: TrendingUp },
-  { href: "/dashboard/notifikasi", label: "Notifikasi", icon: Bell },
-  { href: "/dashboard/profil", label: "Profil", icon: User },
-];
+  const navItems = [
+    { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
+    { href: "/dashboard/tulis", label: "Tulis Berita", icon: PenSquare },
+    { href: "/dashboard/tulisan", label: "Tulisan Saya", icon: FileText },
+    { href: "/dashboard/video", label: "Video Saya", icon: Video },
+    { href: "/dashboard/statistik", label: "Statistik", icon: TrendingUp },
+    { href: "/dashboard/notifikasi", label: "Notifikasi", icon: Bell },
+    { href: "/dashboard/profil", label: "Profil", icon: User },
+  ];
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">

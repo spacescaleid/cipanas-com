@@ -346,7 +346,6 @@ async function main() {
     for (const comment of commentData.slice(0, 2)) {
       await prisma.comment.create({
         data: {
-          userId: admin.id,
           articleId: article.id,
           name: comment.name,
           content: comment.content,
