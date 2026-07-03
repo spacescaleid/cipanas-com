@@ -18,43 +18,54 @@ interface Props {
 }
 
 /**
- * Konfigurasi dimensi & pembatas ukuran per posisi iklan.
+ * Konfigurasi ukuran iklan per posisi.
  *
- * `intrinsic`: ukuran asli banner (untuk width/height prop di next/image,
- *              biar Next tahu aspect ratio & bisa optimize download).
- * `wrapperClass`: pembatas max-w/max-h pada wrapper — mencegah iklan
- *                 melebar/meninggi tak terkontrol di layar besar.
- * `imgClass`: cara gambar mengisi wrapper — pakai object-contain supaya
- *             tidak gepeng kalau pengiklan upload dengan rasio agak beda.
- * `mobileHeightClass`: fallback tinggi di mobile (biar konsisten dengan placeholder).
+ * FILOSOFI: batasi HANYA lebar (max-width), biarkan tinggi mengikuti
+ * aspect ratio asli gambar. Kalau pengiklan upload gambar dengan aspek
+ * mendekati ukuran resmi slot, gambar akan pas. Kalau upload dengan
+ * aspek berbeda, gambar tetap ditampilkan utuh (tidak terpotong),
+ * cuma jadi lebih tinggi/pendek.
+ *
+ * Tinggi maksimum diterapkan sebagai SAFETY NET (max-h) supaya kalau
+ * ada pengiklan upload gambar super-tinggi (misal 500x2000), tidak
+ * memakan seluruh layar. Kalau kena limit ini, pakai object-contain
+ * biar gambar center di dalam wrapper (ada whitespace atas-bawah,
+ * daripada terpotong).
  */
 const AD_DIMENSIONS: Record<
   AdPosition,
   {
     intrinsicWidth: number;
     intrinsicHeight: number;
+    /** Class untuk wrapper <a> — cuma batasi width, tinggi ikut natural */
     wrapperClass: string;
+    /** Safety net tinggi maksimum (kalau gambar ekstrem) */
+    safetyMaxHeight: string;
   }
 > = {
   HEADER: {
     intrinsicWidth: 728,
     intrinsicHeight: 90,
-    wrapperClass: "mx-auto w-full max-w-[728px] max-h-[120px]",
+    wrapperClass: "mx-auto w-full max-w-[728px]",
+    safetyMaxHeight: "max-h-[200px]", // fallback kalau upload gambar tinggi
   },
   FOOTER: {
     intrinsicWidth: 728,
     intrinsicHeight: 90,
-    wrapperClass: "mx-auto w-full max-w-[728px] max-h-[120px]",
+    wrapperClass: "mx-auto w-full max-w-[728px]",
+    safetyMaxHeight: "max-h-[200px]",
   },
   SIDEBAR: {
     intrinsicWidth: 300,
     intrinsicHeight: 250,
-    wrapperClass: "mx-auto w-full max-w-[300px] max-h-[280px]",
+    wrapperClass: "mx-auto w-full max-w-[300px]",
+    safetyMaxHeight: "max-h-[400px]",
   },
   INLINE: {
     intrinsicWidth: 600,
     intrinsicHeight: 200,
-    wrapperClass: "mx-auto w-full max-w-[600px] max-h-[220px]",
+    wrapperClass: "mx-auto w-full max-w-[600px]",
+    safetyMaxHeight: "max-h-[350px]",
   },
 };
 
@@ -63,7 +74,7 @@ const AD_DIMENSIONS: Record<
  * - Rotate tiap X detik (default 15 detik)
  * - Track impression lewat IntersectionObserver (cuma count kalau visible)
  * - Track impression tiap iklan cuma sekali per session
- * - Ukuran gambar dibatasi per posisi via AD_DIMENSIONS
+ * - Ukuran gambar dibatasi WIDTH per posisi, tinggi ikut natural
  */
 export function AdRotator({ ads, position, rotateIntervalMs = 15000 }: Props) {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -82,7 +93,7 @@ export function AdRotator({ ads, position, rotateIntervalMs = 15000 }: Props) {
       ([entry]) => {
         setIsVisible(entry.isIntersecting);
       },
-      { threshold: 0.5 } // minimal 50% visible baru dianggap "seen"
+      { threshold: 0.5 }
     );
 
     observer.observe(el);
@@ -95,11 +106,9 @@ export function AdRotator({ ads, position, rotateIntervalMs = 15000 }: Props) {
     const currentAd = ads[currentIndex];
     if (!currentAd) return;
 
-    // Cuma track sekali per session per iklan
     if (impressedIdsRef.current.has(currentAd.id)) return;
     impressedIdsRef.current.add(currentAd.id);
 
-    // Fire-and-forget POST
     fetch(`/api/ads/${currentAd.id}/impression`, {
       method: "POST",
       keepalive: true,
@@ -110,7 +119,7 @@ export function AdRotator({ ads, position, rotateIntervalMs = 15000 }: Props) {
 
   // Auto-rotate
   useEffect(() => {
-    if (ads.length <= 1) return; // no rotation if only 1 ad
+    if (ads.length <= 1) return;
 
     const interval = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % ads.length);
@@ -148,6 +157,12 @@ export function AdRotator({ ads, position, rotateIntervalMs = 15000 }: Props) {
         )}
       </div>
 
+      {/*
+        Struktur wrapper:
+        - <a> = link click, cuma batasi WIDTH (tinggi ikut natural gambar)
+        - <div safetyMaxHeight> = safety net kalau gambar ekstrem
+        - <Image> = tampil dengan aspek asli, tidak dipaksa fit ke box
+      */}
       <a
         href={`/api/ads/${currentAd.id}/click`}
         target="_blank"
@@ -155,15 +170,17 @@ export function AdRotator({ ads, position, rotateIntervalMs = 15000 }: Props) {
         className={`block overflow-hidden rounded-xl border border-neutral-200 bg-white transition hover:opacity-90 dark:border-neutral-800 dark:bg-neutral-900 ${dims.wrapperClass}`}
         aria-label={`Iklan ${currentAd.advertiserName}`}
       >
-        <Image
-          key={currentAd.id}
-          src={currentAd.mediaUrl ?? "/images/placeholder-ad.png"}
-          alt={`Iklan ${currentAd.advertiserName}`}
-          width={dims.intrinsicWidth}
-          height={dims.intrinsicHeight}
-          className="h-auto w-full object-contain animate-fade-in"
-          unoptimized
-        />
+        <div className={`flex items-center justify-center ${dims.safetyMaxHeight}`}>
+          <Image
+            key={currentAd.id}
+            src={currentAd.mediaUrl ?? "/images/placeholder-ad.png"}
+            alt={`Iklan ${currentAd.advertiserName}`}
+            width={dims.intrinsicWidth}
+            height={dims.intrinsicHeight}
+            className="h-auto w-full object-contain animate-fade-in"
+            unoptimized
+          />
+        </div>
       </a>
     </div>
   );
