@@ -71,12 +71,12 @@ export default async function HomePage() {
   return (
     <main className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
       {/* ═══════════════════════════════════════════════════════════ */}
-      {/* HEADER AD SLOT — center align, banner dibatasi 728px         */}
+      {/* HEADER AD SLOT — center align, banner dibatasi 970px         */}
       {/* ═══════════════════════════════════════════════════════════ */}
       <div className="border-b border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
         <div className="mx-auto max-w-7xl px-4 py-4">
           <div className="flex justify-center">
-            <div className="w-full max-w-[728px]">
+            <div className="w-full max-w-[970px]">
               <AdSlotDisplay position="HEADER" />
             </div>
           </div>
@@ -159,7 +159,7 @@ export default async function HomePage() {
           {/* SIDEBAR */}
           <aside className="lg:sticky lg:top-4 lg:self-start">
             <div className="space-y-6">
-              {/* Sidebar Ad — sudah di kolom 320px, AdRotator batasi 300x280 */}
+              {/* Sidebar Ad — sudah di kolom 320px, AdRotator batasi 300x400 */}
               <div className="rounded-xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
                 <p className="mb-3 text-center text-xs uppercase tracking-wider text-neutral-400">
                   Iklan
@@ -213,12 +213,12 @@ export default async function HomePage() {
       </div>
 
       {/* ═══════════════════════════════════════════════════════════ */}
-      {/* FOOTER AD SLOT — center align, banner dibatasi 728px         */}
+      {/* FOOTER AD SLOT — center align, banner dibatasi 970px         */}
       {/* ═══════════════════════════════════════════════════════════ */}
       <div className="border-t border-neutral-200 bg-white py-6 dark:border-neutral-800 dark:bg-neutral-900">
         <div className="mx-auto max-w-7xl px-4">
           <div className="flex justify-center">
-            <div className="w-full max-w-[728px]">
+            <div className="w-full max-w-[970px]">
               <AdSlotDisplay position="FOOTER" />
             </div>
           </div>
