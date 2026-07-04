@@ -1,107 +1,153 @@
 // src/components/ui/Pagination.tsx
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { cn } from "@/lib/utils";
+import {
+  getPageNumbers,
+  type PaginationMeta,
+} from "@/lib/pagination";
 
 interface Props {
-  currentPage: number;
-  totalPages: number;
-  basePath: string; // boleh sudah mengandung ?foo=bar
+  meta: PaginationMeta;
+  /**
+   * Base path untuk generate link, misal `/video` atau `/berita`.
+   * Component akan append `?page=N` (atau merge dengan query params existing kalau ada).
+   */
+  basePath: string;
+  /**
+   * Optional: query params tambahan yang harus di-preserve saat navigasi
+   * (misal filter kategori). Format: "&status=PENDING&kategori=politik"
+   */
+  extraQuery?: string;
+  /**
+   * Label untuk keterangan (default "results").
+   */
+  label?: string;
 }
 
-function buildPageHref(basePath: string, page: number): string {
-  if (page === 1) return basePath;
-  const separator = basePath.includes("?") ? "&" : "?";
-  return `${basePath}${separator}page=${page}`;
-}
-
-export function Pagination({ currentPage, totalPages, basePath }: Props) {
-  if (totalPages <= 1) return null;
-
-  const buildHref = (page: number) => buildPageHref(basePath, page);
-
-  const pages: number[] = [];
-  const maxVisible = 5;
-  let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
-  const end = Math.min(totalPages, start + maxVisible - 1);
-  if (end - start + 1 < maxVisible) {
-    start = Math.max(1, end - maxVisible + 1);
+/**
+ * Reusable pagination component.
+ *
+ * Style: `Showing 1 to 9 of 26 results  [<] [1] [2] [3] [>]`
+ * Support smart truncation dengan ellipsis untuk banyak halaman.
+ *
+ * @example
+ * <Pagination
+ *   meta={{ currentPage: 1, totalPages: 3, ... }}
+ *   basePath="/video"
+ *   label="video"
+ * />
+ */
+export function Pagination({
+  meta,
+  basePath,
+  extraQuery = "",
+  label = "hasil",
+}: Props) {
+  // Jangan render kalau cuma 1 halaman
+  if (meta.totalPages <= 1) {
+    return null;
   }
-  for (let i = start; i <= end; i++) pages.push(i);
+
+  const pageNumbers = getPageNumbers(meta.currentPage, meta.totalPages);
+
+  const buildUrl = (page: number): string => {
+    const params = new URLSearchParams(extraQuery.replace(/^&/, ""));
+    if (page > 1) {
+      params.set("page", String(page));
+    }
+    const query = params.toString();
+    return query ? `${basePath}?${query}` : basePath;
+  };
 
   return (
-    <nav className="mt-10 flex items-center justify-center gap-1">
-      {currentPage > 1 ? (
-        <Link
-          href={buildHref(currentPage - 1)}
-          className="flex items-center gap-1 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800"
-          aria-label="Halaman sebelumnya"
-        >
-          <ChevronLeft className="h-4 w-4" />
-          <span className="hidden sm:inline">Sebelumnya</span>
-        </Link>
-      ) : (
-        <span className="flex items-center gap-1 rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-400 dark:border-neutral-800">
-          <ChevronLeft className="h-4 w-4" />
-          <span className="hidden sm:inline">Sebelumnya</span>
-        </span>
-      )}
+    <nav
+      aria-label="Pagination"
+      className="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-between"
+    >
+      {/* Info: Showing X to Y of Z */}
+      <p className="text-sm text-neutral-600 dark:text-neutral-400">
+        Menampilkan{" "}
+        <span className="font-semibold text-neutral-900 dark:text-white">
+          {meta.startItem}
+        </span>{" "}
+        sampai{" "}
+        <span className="font-semibold text-neutral-900 dark:text-white">
+          {meta.endItem}
+        </span>{" "}
+        dari{" "}
+        <span className="font-semibold text-neutral-900 dark:text-white">
+          {meta.totalItems}
+        </span>{" "}
+        {label}
+      </p>
 
-      {start > 1 && (
-        <>
+      {/* Pagination buttons */}
+      <div className="flex items-center gap-1">
+        {/* Prev button */}
+        {meta.hasPrevPage ? (
           <Link
-            href={buildHref(1)}
-            className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800"
+            href={buildUrl(meta.currentPage - 1)}
+            className="inline-flex h-9 items-center justify-center rounded-lg border border-neutral-300 bg-white px-2 text-sm text-neutral-700 transition hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800"
+            aria-label="Halaman sebelumnya"
           >
-            1
+            <ChevronLeft className="h-4 w-4" />
           </Link>
-          {start > 2 && <span className="px-1 text-neutral-500">…</span>}
-        </>
-      )}
+        ) : (
+          <span className="inline-flex h-9 items-center justify-center rounded-lg border border-neutral-200 bg-neutral-50 px-2 text-sm text-neutral-400 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-600">
+            <ChevronLeft className="h-4 w-4" />
+          </span>
+        )}
 
-      {pages.map((p) => (
-        <Link
-          key={p}
-          href={buildHref(p)}
-          className={cn(
-            "rounded-lg border px-3 py-2 text-sm transition",
-            p === currentPage
-              ? "border-brand-600 bg-brand-600 text-white"
-              : "border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800"
-          )}
-          aria-current={p === currentPage ? "page" : undefined}
-        >
-          {p}
-        </Link>
-      ))}
+        {/* Page number buttons */}
+        {pageNumbers.map((page, idx) => {
+          if (page === "...") {
+            return (
+              <span
+                key={`ellipsis-${idx}`}
+                className="inline-flex h-9 w-9 items-center justify-center text-sm text-neutral-400"
+              >
+                ...
+              </span>
+            );
+          }
 
-      {end < totalPages && (
-        <>
-          {end < totalPages - 1 && <span className="px-1 text-neutral-500">…</span>}
+          const isCurrent = page === meta.currentPage;
+
+          return isCurrent ? (
+            <span
+              key={page}
+              className="inline-flex h-9 min-w-9 items-center justify-center rounded-lg bg-brand-600 px-3 text-sm font-semibold text-white"
+              aria-current="page"
+            >
+              {page}
+            </span>
+          ) : (
+            <Link
+              key={page}
+              href={buildUrl(page)}
+              className="inline-flex h-9 min-w-9 items-center justify-center rounded-lg border border-neutral-300 bg-white px-3 text-sm text-neutral-700 transition hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800"
+              aria-label={`Halaman ${page}`}
+            >
+              {page}
+            </Link>
+          );
+        })}
+
+        {/* Next button */}
+        {meta.hasNextPage ? (
           <Link
-            href={buildHref(totalPages)}
-            className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800"
+            href={buildUrl(meta.currentPage + 1)}
+            className="inline-flex h-9 items-center justify-center rounded-lg border border-neutral-300 bg-white px-2 text-sm text-neutral-700 transition hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800"
+            aria-label="Halaman berikutnya"
           >
-            {totalPages}
+            <ChevronRight className="h-4 w-4" />
           </Link>
-        </>
-      )}
-
-      {currentPage < totalPages ? (
-        <Link
-          href={buildHref(currentPage + 1)}
-          className="flex items-center gap-1 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800"
-          aria-label="Halaman berikutnya"
-        >
-          <span className="hidden sm:inline">Berikutnya</span>
-          <ChevronRight className="h-4 w-4" />
-        </Link>
-      ) : (
-        <span className="flex items-center gap-1 rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-400 dark:border-neutral-800">
-          <span className="hidden sm:inline">Berikutnya</span>
-          <ChevronRight className="h-4 w-4" />
-        </span>
-      )}
+        ) : (
+          <span className="inline-flex h-9 items-center justify-center rounded-lg border border-neutral-200 bg-neutral-50 px-2 text-sm text-neutral-400 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-600">
+            <ChevronRight className="h-4 w-4" />
+          </span>
+        )}
+      </div>
     </nav>
   );
 }

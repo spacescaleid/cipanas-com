@@ -11,6 +11,7 @@ import { ArticleCard } from "@/components/article/ArticleCard";
 import { PopularSidebar } from "@/components/article/PopularSidebar";
 import { Pagination } from "@/components/ui/Pagination";
 import { AdSlotDisplay } from "@/components/ads/AdSlotDisplay";
+import { getPaginationMeta, DEFAULT_ITEMS_PER_PAGE } from "@/lib/pagination";
 
 export const revalidate = 60;
 
@@ -39,8 +40,18 @@ export default async function CategoryPage({ params, searchParams }: Props) {
   const category = await getCategoryBySlug(slug);
   if (!category) notFound();
 
-  const { articles, totalPages, currentPage, total } =
-    await getArticlesByCategoryPaginated(slug, page, 9);
+  const { articles, currentPage, total } = await getArticlesByCategoryPaginated(
+    slug,
+    page,
+    DEFAULT_ITEMS_PER_PAGE
+  );
+
+  // Hitung meta pagination pakai utility baru
+  const paginationMeta = getPaginationMeta({
+    currentPage,
+    totalItems: total,
+    itemsPerPage: DEFAULT_ITEMS_PER_PAGE,
+  });
 
   return (
     <div className="animate-fade-in">
@@ -72,9 +83,9 @@ export default async function CategoryPage({ params, searchParams }: Props) {
                 </div>
 
                 <Pagination
-                  currentPage={currentPage}
-                  totalPages={totalPages}
+                  meta={paginationMeta}
                   basePath={`/kategori/${slug}`}
+                  label="artikel"
                 />
               </>
             )}

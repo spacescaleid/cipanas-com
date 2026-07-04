@@ -7,6 +7,12 @@ import { PlayCircle, Video as VideoIcon, Clock, Eye, MessageSquare } from "lucid
 import prisma from "@/lib/prisma";
 import { formatRelativeTime } from "@/lib/format";
 import { serializePrisma } from "@/lib/serialize";
+import {
+  getPaginationMeta,
+  parsePageParam,
+  DEFAULT_ITEMS_PER_PAGE,
+} from "@/lib/pagination";
+import { Pagination } from "@/components/ui/Pagination";
 
 export const metadata: Metadata = {
   title: "Video — Cipanas.com",
@@ -15,28 +21,50 @@ export const metadata: Metadata = {
 
 export const revalidate = 300; // Cache 5 menit
 
-async function getPublishedVideos() {
-  const videosRaw = await prisma.video.findMany({
-    where: { status: "PUBLISHED" },
-    include: {
-      author: {
-        select: { id: true, name: true },
-      },
-      _count: {
-        select: {
-          comments: { where: { status: "APPROVED" } },
-        },
-      },
-    },
-    orderBy: { publishedAt: "desc" },
-    take: 24, // Load 24 video pertama (nanti di Iterasi 2 diganti pagination)
-  });
-
-  return serializePrisma(videosRaw);
+interface Props {
+  searchParams: Promise<{ page?: string }>;
 }
 
-export default async function VideoPage() {
-  const videos = await getPublishedVideos();
+async function getPublishedVideosPaginated(page: number) {
+  const [videosRaw, totalCount] = await Promise.all([
+    prisma.video.findMany({
+      where: { status: "PUBLISHED" },
+      include: {
+        author: {
+          select: { id: true, name: true },
+        },
+        _count: {
+          select: {
+            comments: { where: { status: "APPROVED" } },
+          },
+        },
+      },
+      orderBy: { publishedAt: "desc" },
+      skip: (page - 1) * DEFAULT_ITEMS_PER_PAGE,
+      take: DEFAULT_ITEMS_PER_PAGE,
+    }),
+    prisma.video.count({
+      where: { status: "PUBLISHED" },
+    }),
+  ]);
+
+  return {
+    videos: serializePrisma(videosRaw),
+    totalCount,
+  };
+}
+
+export default async function VideoPage({ searchParams }: Props) {
+  const params = await searchParams;
+  const currentPage = parsePageParam(params.page);
+
+  const { videos, totalCount } = await getPublishedVideosPaginated(currentPage);
+
+  const paginationMeta = getPaginationMeta({
+    currentPage,
+    totalItems: totalCount,
+    itemsPerPage: DEFAULT_ITEMS_PER_PAGE,
+  });
 
   return (
     <div className="animate-fade-in">
@@ -55,7 +83,7 @@ export default async function VideoPage() {
         </div>
 
         {/* Empty state */}
-        {videos.length === 0 ? (
+        {totalCount === 0 ? (
           <div className="rounded-xl border-2 border-dashed border-neutral-300 p-12 text-center dark:border-neutral-700">
             <VideoIcon className="mx-auto h-12 w-12 text-neutral-400" />
             <h3 className="mt-4 font-serif text-lg font-bold text-neutral-900 dark:text-white">
@@ -141,7 +169,14 @@ export default async function VideoPage() {
               ))}
             </div>
 
-            {/* Footer info */}
+            {/* Pagination */}
+            <Pagination
+              meta={paginationMeta}
+              basePath="/video"
+              label="video"
+            />
+
+            {/* Footer CTA */}
             <div className="mt-10 rounded-xl border border-dashed border-neutral-300 p-6 text-center dark:border-neutral-700">
               <p className="text-sm text-neutral-600 dark:text-neutral-400">
                 Punya video menarik seputar Cipanas?

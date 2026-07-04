@@ -6,6 +6,10 @@ import { User as UserIcon } from "lucide-react";
 import { formatRelativeTime, formatDateTime } from "@/lib/format";
 import { UserRoleBadge } from "./UserRoleBadge";
 import { Pagination } from "@/components/ui/Pagination";
+import {
+  getPaginationMeta,
+  DEFAULT_ITEMS_PER_PAGE,
+} from "@/lib/pagination";
 import type { Role } from "@prisma/client";
 
 interface Log {
@@ -110,6 +114,32 @@ const actionMeta: Record<
     color: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
     icon: "✓",
   },
+  // Video actions
+  SUBMIT_VIDEO: {
+    label: "Submit video",
+    color: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
+    icon: "↑",
+  },
+  APPROVE_VIDEO: {
+    label: "Menyetujui video",
+    color: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
+    icon: "✓",
+  },
+  REJECT_VIDEO: {
+    label: "Menolak video",
+    color: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
+    icon: "✕",
+  },
+  DELETE_VIDEO: {
+    label: "Menghapus video",
+    color: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
+    icon: "🗑",
+  },
+  DELETE_VIDEO_ADMIN: {
+    label: "Menghapus video (admin)",
+    color: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
+    icon: "🗑",
+  },
 };
 
 function getActionMeta(action: string) {
@@ -131,6 +161,20 @@ export function ActivityLogList({
   actions,
   currentAction,
 }: Props) {
+  // Hitung meta pagination pakai utility baru.
+  // itemsPerPage di-derive dari totalPages & total supaya sinkron dengan caller
+  // (kalau caller pakai page size berbeda dari DEFAULT_ITEMS_PER_PAGE).
+  const itemsPerPage =
+    totalPages > 0
+      ? Math.ceil(total / totalPages) || DEFAULT_ITEMS_PER_PAGE
+      : DEFAULT_ITEMS_PER_PAGE;
+
+  const paginationMeta = getPaginationMeta({
+    currentPage,
+    totalItems: total,
+    itemsPerPage,
+  });
+
   return (
     <div className="space-y-4">
       {/* Filter action */}
@@ -239,13 +283,12 @@ export function ActivityLogList({
         </ol>
       )}
 
-      {/* Pagination */}
+      {/* Pagination — API baru: pakai meta object + extraQuery untuk preserve filter */}
       <Pagination
-        currentPage={currentPage}
-        totalPages={totalPages}
-        basePath={
-          currentAction ? `/admin/log?action=${currentAction}` : "/admin/log"
-        }
+        meta={paginationMeta}
+        basePath="/admin/log"
+        extraQuery={currentAction ? `&action=${currentAction}` : ""}
+        label="aktivitas"
       />
     </div>
   );
