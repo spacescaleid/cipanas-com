@@ -10,6 +10,7 @@ import prisma from "@/lib/prisma";
 import { formatDate, formatRelativeTime } from "@/lib/format";
 import { getYouTubeEmbedUrl } from "@/lib/youtube";
 import { serializePrisma } from "@/lib/serialize";
+import { CommentSection } from "@/components/comment/CommentSection";
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -58,15 +59,11 @@ export default async function VideoDetailPage({ params }: Props) {
   const embedUrl = getYouTubeEmbedUrl(video.youtubeId);
   const relatedVideos = await getRelatedVideos(video.id);
 
-  // Fire-and-forget: increment view count
-  incrementVideoView(video.id).catch(() => {
-    // Silent fail
-  });
+  incrementVideoView(video.id).catch(() => {});
 
   return (
     <article className="animate-fade-in">
       <div className="mx-auto max-w-7xl px-4 py-8">
-        {/* Back link */}
         <div className="mb-4">
           <Link
             href="/video"
@@ -78,9 +75,7 @@ export default async function VideoDetailPage({ params }: Props) {
         </div>
 
         <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
-          {/* Main content */}
           <div className="min-w-0 space-y-6">
-            {/* Video Player */}
             <div className="overflow-hidden rounded-xl border border-neutral-200 bg-black shadow-card dark:border-neutral-800">
               <div className="relative aspect-video">
                 <iframe
@@ -93,7 +88,6 @@ export default async function VideoDetailPage({ params }: Props) {
               </div>
             </div>
 
-            {/* Title + Meta */}
             <div>
               <h1 className="font-serif text-2xl font-bold leading-tight text-neutral-900 dark:text-white md:text-3xl">
                 {video.title}
@@ -140,7 +134,6 @@ export default async function VideoDetailPage({ params }: Props) {
               </div>
             </div>
 
-            {/* Description */}
             {video.description && (
               <div className="rounded-xl border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
                 <h2 className="mb-2 text-sm font-semibold text-neutral-700 dark:text-neutral-300">
@@ -152,16 +145,10 @@ export default async function VideoDetailPage({ params }: Props) {
               </div>
             )}
 
-            {/* Comment section placeholder (akan diisi di Iterasi 3) */}
-            <div className="rounded-xl border border-dashed border-neutral-300 bg-white p-6 text-center dark:border-neutral-700 dark:bg-neutral-900">
-              <MessageSquare className="mx-auto h-8 w-8 text-neutral-400" />
-              <p className="mt-2 text-sm text-neutral-500">
-                Fitur komentar segera hadir
-              </p>
-            </div>
+            {/* Comment Section */}
+            <CommentSection videoId={video.id} />
           </div>
 
-          {/* Sidebar: Related Videos */}
           <aside className="space-y-6">
             <div className="rounded-xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
               <h3 className="mb-4 font-serif text-lg font-bold text-neutral-900 dark:text-white">
@@ -169,9 +156,7 @@ export default async function VideoDetailPage({ params }: Props) {
               </h3>
 
               {relatedVideos.length === 0 ? (
-                <p className="text-sm text-neutral-500">
-                  Belum ada video lain
-                </p>
+                <p className="text-sm text-neutral-500">Belum ada video lain</p>
               ) : (
                 <div className="space-y-3">
                   {relatedVideos.map((related) => (
@@ -195,7 +180,6 @@ export default async function VideoDetailPage({ params }: Props) {
                             <VideoIcon className="h-6 w-6 text-neutral-400" />
                           </div>
                         )}
-                        {/* Play icon overlay */}
                         <div className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition group-hover:bg-black/40 group-hover:opacity-100">
                           <PlayCircle className="h-6 w-6 text-white" />
                         </div>

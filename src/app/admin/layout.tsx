@@ -8,6 +8,7 @@ import {
   FolderTree,
   Users,
   Megaphone,
+  MessageSquare,
   Activity,
 } from "lucide-react";
 
@@ -25,6 +26,7 @@ export default async function AdminLayout({
     { href: "/admin", label: "Overview", icon: LayoutDashboard },
     { href: "/admin/berita", label: "Kelola Berita", icon: Newspaper },
     { href: "/admin/video", label: "Kelola Video", icon: Video },
+    { href: "/admin/komentar", label: "Komentar", icon: MessageSquare },
     { href: "/admin/kategori", label: "Kategori", icon: FolderTree },
     { href: "/admin/pengguna", label: "Pengguna", icon: Users },
     { href: "/admin/iklan", label: "Iklan", icon: Megaphone },

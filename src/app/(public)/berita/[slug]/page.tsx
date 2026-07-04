@@ -18,6 +18,7 @@ import { AuthorCard } from "@/components/article/AuthorCard";
 import { RelatedArticles } from "@/components/article/RelatedArticles";
 import { PopularSidebar } from "@/components/article/PopularSidebar";
 import { AdSlotDisplay } from "@/components/ads/AdSlotDisplay";
+import { CommentSection } from "@/components/comment/CommentSection";
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -140,6 +141,11 @@ export default async function ArticleDetailPage({ params }: Props) {
                 categoryId={article.category.id}
               />
             </Suspense>
+
+            {/* Comment Section */}
+            <div className="mt-10">
+              <CommentSection articleId={article.id} />
+            </div>
           </div>
 
           {/* Sidebar */}
