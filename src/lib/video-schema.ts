@@ -1,7 +1,11 @@
 // src/lib/video-schema.ts
 import { z } from "zod";
-import { isValidYouTubeUrl } from "./youtube";
+import { detectPlatform } from "./video-platforms";
 
+/**
+ * Schema untuk create video.
+ * URL bisa YouTube, TikTok, atau Instagram — platform auto-detected.
+ */
 export const createVideoSchema = z.object({
   title: z
     .string()
@@ -12,12 +16,12 @@ export const createVideoSchema = z.object({
     .max(1000, "Deskripsi maksimal 1000 karakter")
     .optional()
     .or(z.literal("")),
-  youtubeUrl: z
+  videoUrl: z
     .string()
     .url("URL tidak valid")
     .refine(
-      (url) => isValidYouTubeUrl(url),
-      "Harus URL YouTube yang valid (youtube.com/watch?v=... atau youtu.be/...)"
+      (url) => detectPlatform(url) !== null,
+      "URL harus dari YouTube, TikTok, atau Instagram yang valid"
     ),
 });
 

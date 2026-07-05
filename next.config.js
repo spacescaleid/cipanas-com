@@ -104,7 +104,7 @@ const nextConfig = {
               "font-src 'self'",
               "connect-src 'self' https://res.cloudinary.com https://api.cloudinary.com",
               // Allow YouTube iframe embed di halaman detail video
-              "frame-src https://www.youtube.com https://www.youtube-nocookie.com",
+              "frame-src https://www.youtube.com https://www.youtube-nocookie.com https://www.tiktok.com",
               "frame-ancestors 'none'",
             ].join('; '),
           },

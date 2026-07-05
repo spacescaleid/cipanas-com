@@ -1,7 +1,7 @@
 // src/types/video.ts
-import type { Video, VideoStatus, User } from "@prisma/client";
+import type { Video, VideoStatus, VideoPlatform, User } from "@prisma/client";
 
-export type { VideoStatus };
+export type { VideoStatus, VideoPlatform };
 
 export type VideoWithAuthor = Video & {
   author: Pick<User, "id" | "name" | "image">;
@@ -12,7 +12,9 @@ export type VideoListItem = Pick<
   | "id"
   | "title"
   | "slug"
-  | "youtubeId"
+  | "platform"
+  | "externalId"
+  | "sourceUrl"
   | "thumbnail"
   | "duration"
   | "viewCount"

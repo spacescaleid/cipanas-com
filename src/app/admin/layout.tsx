@@ -14,6 +14,7 @@ import {
 
 import { requireRole } from "@/lib/auth-utils";
 import { SignOutButton } from "@/components/auth/SignOutButton";
+import { getAdminPendingCounts } from "@/lib/notification-counts";
 
 export default async function AdminLayout({
   children,
@@ -21,16 +22,17 @@ export default async function AdminLayout({
   children: ReactNode;
 }) {
   const session = await requireRole(["ADMIN", "SUPER_ADMIN"]);
+  const counts = await getAdminPendingCounts();
 
   const navItems = [
-    { href: "/admin", label: "Overview", icon: LayoutDashboard },
-    { href: "/admin/berita", label: "Kelola Berita", icon: Newspaper },
-    { href: "/admin/video", label: "Kelola Video", icon: Video },
-    { href: "/admin/komentar", label: "Komentar", icon: MessageSquare },
-    { href: "/admin/kategori", label: "Kategori", icon: FolderTree },
-    { href: "/admin/pengguna", label: "Pengguna", icon: Users },
-    { href: "/admin/iklan", label: "Iklan", icon: Megaphone },
-    { href: "/admin/log", label: "Log Aktivitas", icon: Activity },
+    { href: "/admin", label: "Overview", icon: LayoutDashboard, badge: 0 },
+    { href: "/admin/berita", label: "Kelola Berita", icon: Newspaper, badge: counts.articles },
+    { href: "/admin/video", label: "Kelola Video", icon: Video, badge: counts.videos },
+    { href: "/admin/komentar", label: "Komentar", icon: MessageSquare, badge: counts.comments },
+    { href: "/admin/kategori", label: "Kategori", icon: FolderTree, badge: 0 },
+    { href: "/admin/pengguna", label: "Pengguna", icon: Users, badge: 0 },
+    { href: "/admin/iklan", label: "Iklan", icon: Megaphone, badge: counts.ads },
+    { href: "/admin/log", label: "Log Aktivitas", icon: Activity, badge: 0 },
   ];
 
   return (
@@ -73,7 +75,12 @@ export default async function AdminLayout({
                   className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-neutral-700 transition hover:bg-neutral-100 hover:text-brand-700 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-brand-400"
                 >
                   <Icon className="h-4 w-4" />
-                  {item.label}
+                  <span className="flex-1">{item.label}</span>
+                  {item.badge > 0 && (
+                    <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
+                      {item.badge}
+                    </span>
+                  )}
                 </Link>
               );
             })}

@@ -1,12 +1,13 @@
 // src/app/dashboard/video/page.tsx
 import Link from "next/link";
 import Image from "next/image";
-import { Plus, Video as VideoIcon, Clock, Eye, MessageSquare} from "lucide-react";
+import { Plus, Video as VideoIcon, Clock, Eye, MessageSquare } from "lucide-react";
 
 import { requireRole } from "@/lib/auth-utils";
 import { getMyVideos } from "@/actions/video-actions";
 import { formatRelativeTime } from "@/lib/format";
 import { VIDEO_STATUS_LABELS, VIDEO_STATUS_COLORS } from "@/types/video";
+import { PLATFORM_LABELS, PLATFORM_COLORS } from "@/lib/video-platforms";
 import { DeleteVideoButton } from "./DeleteVideoButton";
 
 interface Props {
@@ -26,7 +27,7 @@ export default async function MyVideosPage({ searchParams }: Props) {
             Video Saya
           </h1>
           <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-            Kelola video YouTube yang kamu upload ke Cipanas.com
+            Kelola video yang kamu upload ke Cipanas.com
           </p>
         </div>
         <Link
@@ -38,28 +39,24 @@ export default async function MyVideosPage({ searchParams }: Props) {
         </Link>
       </div>
 
-      {/* Success message setelah submit */}
       {submitted && (
         <div className="mb-6 rounded-xl border-l-4 border-green-500 bg-green-50 p-4 dark:bg-green-900/20">
           <p className="text-sm font-semibold text-green-900 dark:text-green-100">
             ✅ Video berhasil dikirim untuk review!
           </p>
           <p className="mt-0.5 text-xs text-green-700 dark:text-green-300">
-            Admin akan mereview video kamu dalam 1×24 jam. Kamu akan
-            mendapat notifikasi saat video sudah tayang.
+            Admin akan mereview video kamu dalam 1×24 jam.
           </p>
         </div>
       )}
 
-      {/* Info batas upload */}
       <div className="mb-6 rounded-xl border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-900/20">
         <p className="text-xs text-blue-800 dark:text-blue-200">
           💡 <strong>Batas upload:</strong> maksimal 3 video per hari.
-          Video wajib review admin sebelum tayang di halaman publik.
+          Support YouTube, TikTok, dan Instagram.
         </p>
       </div>
 
-      {/* List videos */}
       {videos.length === 0 ? (
         <div className="rounded-xl border-2 border-dashed border-neutral-300 p-12 text-center dark:border-neutral-700">
           <VideoIcon className="mx-auto h-12 w-12 text-neutral-400" />
@@ -67,7 +64,7 @@ export default async function MyVideosPage({ searchParams }: Props) {
             Belum ada video
           </h3>
           <p className="mt-1 text-sm text-neutral-500">
-            Mulai bagikan video YouTube favorit kamu untuk warga Cipanas.
+            Mulai bagikan video favorit kamu untuk warga Cipanas.
           </p>
           <Link
             href="/dashboard/video/tambah"
@@ -81,13 +78,13 @@ export default async function MyVideosPage({ searchParams }: Props) {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {videos.map((video) => {
             const statusColor = VIDEO_STATUS_COLORS[video.status];
+            const platformColor = PLATFORM_COLORS[video.platform];
 
             return (
               <div
                 key={video.id}
                 className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-card transition hover:shadow-card-hover dark:border-neutral-800 dark:bg-neutral-900"
               >
-                {/* Thumbnail */}
                 <div className="relative aspect-video overflow-hidden bg-neutral-100 dark:bg-neutral-800">
                   {video.thumbnail && (
                     <Image
@@ -99,25 +96,24 @@ export default async function MyVideosPage({ searchParams }: Props) {
                       unoptimized
                     />
                   )}
-                  {/* Status badge */}
-                  <div className="absolute right-2 top-2">
+                  <div className="absolute right-2 top-2 flex gap-1">
                     <span
-                      className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold border ${statusColor.bg} ${statusColor.text} ${statusColor.border}`}
+                      className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-semibold ${platformColor}`}
+                    >
+                      {PLATFORM_LABELS[video.platform]}
+                    </span>
+                    <span
+                      className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-semibold ${statusColor.bg} ${statusColor.text} ${statusColor.border}`}
                     >
                       {VIDEO_STATUS_LABELS[video.status]}
                     </span>
                   </div>
                 </div>
 
-                {/* Content */}
                 <div className="p-4">
                   {video.status === "PUBLISHED" ? (
-                    <Link
-                      href={`/video/${video.slug}`}
-                      target="_blank"
-                      className="block"
-                    >
-                      <h3 className="line-clamp-2 font-serif text-sm font-bold leading-snug text-neutral-900 hover:text-brand-700 dark:text-white dark:hover:text-brand-400">
+                    <Link href={`/video/${video.slug}`} target="_blank">
+                      <h3 className="line-clamp-2 font-serif text-sm font-bold leading-snug text-neutral-900 hover:text-brand-700 dark:text-white">
                         {video.title}
                       </h3>
                     </Link>
@@ -127,7 +123,6 @@ export default async function MyVideosPage({ searchParams }: Props) {
                     </h3>
                   )}
 
-                  {/* Meta */}
                   <div className="mt-3 flex items-center gap-3 text-xs text-neutral-500">
                     {video.status === "PUBLISHED" && (
                       <>
@@ -147,7 +142,6 @@ export default async function MyVideosPage({ searchParams }: Props) {
                     </span>
                   </div>
 
-                  {/* Delete button (only for PENDING/REJECTED) */}
                   {video.status !== "PUBLISHED" && (
                     <div className="mt-3 border-t border-neutral-100 pt-3 dark:border-neutral-800">
                       <DeleteVideoButton

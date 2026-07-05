@@ -34,6 +34,13 @@ enum VideoStatus {
   REJECTED
 }
 
+enum VideoPlatform {
+  YOUTUBE
+  YOUTUBE_SHORTS
+  TIKTOK
+  INSTAGRAM
+}
+
 enum CommentStatus {
   PENDING
   APPROVED
@@ -57,7 +64,7 @@ enum AdOrderStatus {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// USER & AUTH (NextAuth Prisma Adapter)
+// USER & AUTH
 // ═══════════════════════════════════════════════════════════════
 
 model User {
@@ -72,7 +79,6 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @default(now()) @updatedAt
 
-  // Relations
   articles          Article[]
   videos            Video[]
   comments          Comment[]
@@ -158,9 +164,10 @@ model Article {
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @default(now()) @updatedAt
 
-  author   User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  category Category  @relation(fields: [categoryId], references: [id])
+  author   User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  category Category       @relation(fields: [categoryId], references: [id])
   comments Comment[]
+  images   ArticleImage[]
 
   @@index([slug])
   @@index([status])
@@ -170,24 +177,42 @@ model Article {
   @@map("articles")
 }
 
+model ArticleImage {
+  id        String   @id @default(cuid())
+  articleId String
+  url       String
+  publicId  String?
+  caption   String?  @db.Text
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  article Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@index([articleId, order])
+  @@map("article_images")
+}
+
 model Video {
-  id          String      @id @default(cuid())
+  id          String        @id @default(cuid())
   authorId    String
   title       String
-  slug        String      @unique
-  description String?     @db.Text
-  youtubeId   String      @unique
+  slug        String        @unique
+  description String?       @db.Text
+  platform    VideoPlatform @default(YOUTUBE)
+  externalId  String        // ID video di platform (YouTube ID, TikTok ID, dll)
+  sourceUrl   String        // URL asli yang di-paste user
   thumbnail   String?
   duration    String?
-  viewCount   Int         @default(0)
-  status      VideoStatus @default(PENDING)
+  viewCount   Int           @default(0)
+  status      VideoStatus   @default(PENDING)
   publishedAt DateTime?
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @default(now()) @updatedAt
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @default(now()) @updatedAt
 
   author   User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
   comments Comment[]
 
+  @@unique([platform, externalId])
   @@index([slug])
   @@index([status])
   @@index([authorId])
@@ -202,7 +227,6 @@ model Comment {
   content   String        @db.Text
   status    CommentStatus @default(PENDING)
 
-  // Comment bisa untuk artikel ATAU video (bukan keduanya)
   articleId String?
   article   Article?      @relation(fields: [articleId], references: [id], onDelete: Cascade)
 
@@ -221,7 +245,7 @@ model Comment {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// ADS SYSTEM (WA Manual Flow)
+// ADS SYSTEM
 // ═══════════════════════════════════════════════════════════════
 
 model AdSlot {

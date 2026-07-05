@@ -144,6 +144,12 @@ export const UPLOAD_VIDEO_RATE_LIMIT: RateLimitConfig = {
   windowSeconds: 24 * 60 * 60,
 };
 
+/** Upload gallery image: 20 per hour per user */
+export const UPLOAD_GALLERY_RATE_LIMIT: RateLimitConfig = {
+  limit: 20,
+  windowSeconds: 60 * 60,
+};
+
 /** Create comment: 10 per hour per user */
 export const CREATE_COMMENT_RATE_LIMIT: RateLimitConfig = {
   limit: 10,

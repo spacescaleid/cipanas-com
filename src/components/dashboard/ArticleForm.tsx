@@ -13,6 +13,7 @@ import { articleFormSchema, type ArticleFormData } from "@/lib/article-schema";
 import { TiptapEditor } from "@/components/editor/TiptapEditor";
 import { CoverImageUpload } from "@/components/editor/CoverImageUpload";
 import { StatusBadge } from "@/components/dashboard/StatusBadge";
+import { ArticleGallery } from "@/components/dashboard/ArticleGallery";
 import type { ArticleStatus } from "@prisma/client";
 
 interface Category {
@@ -57,7 +58,6 @@ export function ArticleForm({ categories, initialData }: Props) {
   });
 
   const submit = async (action: "DRAFT" | "PENDING") => {
-    // Validasi manual dulu
     const valid = await new Promise<boolean>((resolve) => {
       handleSubmit(
         () => resolve(true),
@@ -198,6 +198,29 @@ export function ArticleForm({ categories, initialData }: Props) {
           <p className="mt-1 text-xs text-red-500">{errors.content.message}</p>
         )}
       </div>
+
+      {/* ⭐ Galeri Foto — hanya muncul di mode edit (butuh articleId) */}
+      {isEdit && (
+        <div>
+          <label className="mb-1.5 block text-sm font-semibold text-neutral-700 dark:text-neutral-300">
+            Galeri Foto
+          </label>
+          <ArticleGallery articleId={initialData.id} />
+          <p className="mt-1 text-xs text-neutral-500">
+            💡 Simpan artikel sebagai draft dulu untuk mulai menambahkan foto galeri
+          </p>
+        </div>
+      )}
+
+      {/* Info galeri untuk mode create */}
+      {!isEdit && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-900/20">
+          <p className="text-xs text-blue-800 dark:text-blue-200">
+            💡 <strong>Galeri Foto:</strong> Simpan artikel sebagai draft terlebih dahulu,
+            lalu buka kembali untuk menambahkan foto galeri (maks 10 foto per artikel).
+          </p>
+        </div>
+      )}
 
       {/* Actions */}
       <div className="sticky bottom-0 -mx-4 flex flex-wrap gap-3 border-t border-neutral-200 bg-white/95 px-4 py-4 backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/95 sm:mx-0 sm:rounded-xl sm:border sm:px-6">

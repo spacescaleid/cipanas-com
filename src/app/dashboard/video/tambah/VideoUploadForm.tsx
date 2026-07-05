@@ -5,7 +5,7 @@ import { useActionState, useEffect } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import toast from "react-hot-toast";
-import { Loader2, Send, Youtube } from "lucide-react";
+import { Loader2, Send, Link as LinkIcon } from "lucide-react";
 
 import {
   createVideoSchema,
@@ -28,11 +28,10 @@ export function VideoUploadForm() {
     defaultValues: {
       title: "",
       description: "",
-      youtubeUrl: "",
+      videoUrl: "",
     },
   });
 
-  // Ganti watch() dengan useWatch() untuk compatibility dengan React Compiler
   const descriptionValue = useWatch({
     control,
     name: "description",
@@ -46,31 +45,31 @@ export function VideoUploadForm() {
 
   return (
     <form action={formAction} className="space-y-5">
-      {/* YouTube URL */}
+      {/* Video URL (multi-platform) */}
       <div>
         <label
-          htmlFor="youtubeUrl"
+          htmlFor="videoUrl"
           className="mb-1.5 block text-sm font-semibold text-neutral-700 dark:text-neutral-300"
         >
-          URL Video YouTube *
+          URL Video *
         </label>
         <div className="relative">
-          <Youtube className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-red-500" />
+          <LinkIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
           <input
-            id="youtubeUrl"
+            id="videoUrl"
             type="url"
-            placeholder="https://www.youtube.com/watch?v=..."
+            placeholder="Paste URL dari YouTube, TikTok, atau Instagram..."
             className="w-full rounded-lg border border-neutral-300 bg-white py-2.5 pl-10 pr-3 text-sm text-neutral-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
-            {...register("youtubeUrl")}
+            {...register("videoUrl")}
           />
         </div>
-        {errors.youtubeUrl && (
+        {errors.videoUrl && (
           <p className="mt-1 text-xs text-red-500">
-            {errors.youtubeUrl.message}
+            {errors.videoUrl.message}
           </p>
         )}
         <p className="mt-1 text-xs text-neutral-500">
-          Support format: youtube.com/watch?v=..., youtu.be/..., youtube.com/shorts/...
+          Support: YouTube, YouTube Shorts, TikTok, Instagram Reels
         </p>
       </div>
 
@@ -92,9 +91,6 @@ export function VideoUploadForm() {
         {errors.title && (
           <p className="mt-1 text-xs text-red-500">{errors.title.message}</p>
         )}
-        <p className="mt-1 text-xs text-neutral-500">
-          Buat judul yang menarik dan informatif (5-200 karakter)
-        </p>
       </div>
 
       {/* Description */}

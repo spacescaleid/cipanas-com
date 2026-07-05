@@ -4,12 +4,13 @@
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
-import Image from "@tiptap/extension-image";
+import TiptapImage from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
 import CharacterCount from "@tiptap/extension-character-count";
 import { useEffect } from "react";
 
 import { EditorToolbar } from "./EditorToolbar";
+import { FigureNode } from "./FigureNode";
 
 interface Props {
   value: string;
@@ -27,7 +28,7 @@ export function TiptapEditor({
   maxChars = 20000,
 }: Props) {
   const editor = useEditor({
-    immediatelyRender: false, // penting untuk SSR Next.js 15+
+    immediatelyRender: false,
     extensions: [
       StarterKit.configure({
         heading: { levels: [2, 3] },
@@ -38,11 +39,14 @@ export function TiptapEditor({
           class: "text-brand-600 underline",
         },
       }),
-      Image.configure({
+      // Image biasa (tanpa caption) — backward compat untuk artikel lama
+      TiptapImage.configure({
         HTMLAttributes: {
           class: "rounded-xl my-4",
         },
       }),
+      // Figure node — gambar dengan caption
+      FigureNode,
       Placeholder.configure({
         placeholder,
       }),
@@ -62,7 +66,6 @@ export function TiptapEditor({
     },
   });
 
-  // Sync jika value berubah dari luar (misal reset form)
   useEffect(() => {
     if (editor && value !== editor.getHTML()) {
       editor.commands.setContent(value, { emitUpdate: false });
@@ -70,6 +73,25 @@ export function TiptapEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
 
+  // Insert image DENGAN caption (pakai FigureNode via insertContent)
+  const handleInsertImageWithCaption = async () => {
+    if (!onInsertImage || !editor) return;
+    const url = await onInsertImage();
+    if (url) {
+      const caption = window.prompt("Caption gambar (opsional, bisa diedit nanti di editor):", "") ?? "";
+      editor
+        .chain()
+        .focus()
+        .insertContent({
+          type: "figure",
+          attrs: { src: url, alt: caption },
+          content: caption ? [{ type: "text", text: caption }] : [],
+        })
+        .run();
+    }
+  };
+
+  // Insert image TANPA caption (legacy)
   const handleInsertImage = async () => {
     if (!onInsertImage || !editor) return;
     const url = await onInsertImage();
@@ -86,6 +108,9 @@ export function TiptapEditor({
       <EditorToolbar
         editor={editor}
         onInsertImage={onInsertImage ? handleInsertImage : undefined}
+        onInsertImageWithCaption={
+          onInsertImage ? handleInsertImageWithCaption : undefined
+        }
       />
       <EditorContent editor={editor} />
       <div className="flex items-center justify-between border-t border-neutral-200 bg-neutral-50 px-4 py-2 text-xs text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900">

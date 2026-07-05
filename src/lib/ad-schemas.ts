@@ -172,10 +172,10 @@ export function validateAdImageDimensions(
   sizeBytes: number
 ): ImageValidationResult {
   const MAX_SIZE_MB: Record<string, number> = {
-    HEADER: 1,
-    SIDEBAR: 0.5,
-    INLINE: 0.5,
-    FOOTER: 0.5,
+    HEADER: 5,
+    SIDEBAR: 3,
+    INLINE: 3,
+    FOOTER: 3,
   };
 
   const maxMB = MAX_SIZE_MB[position] ?? 1;

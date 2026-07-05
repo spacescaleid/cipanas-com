@@ -19,6 +19,8 @@ import { RelatedArticles } from "@/components/article/RelatedArticles";
 import { PopularSidebar } from "@/components/article/PopularSidebar";
 import { AdSlotDisplay } from "@/components/ads/AdSlotDisplay";
 import { CommentSection } from "@/components/comment/CommentSection";
+import { ArticleGallery } from "@/components/article/ArticleGallery";
+import { prisma } from "@/lib/prisma";
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -57,6 +59,13 @@ export default async function ArticleDetailPage({ params }: Props) {
   if (!article) notFound();
 
   const readingTime = estimateReadingTime(article.content);
+
+  // Fetch gallery images
+  const galleryImages = await prisma.articleImage.findMany({
+    where: { articleId: article.id },
+    orderBy: { order: "asc" },
+    select: { id: true, url: true, caption: true },
+  });
 
   return (
     <article className="animate-fade-in">
@@ -113,6 +122,13 @@ export default async function ArticleDetailPage({ params }: Props) {
             <div className="mt-8">
               <ArticleContent html={article.content} />
             </div>
+
+            {/* ⭐ Galeri Foto (kalau ada) */}
+            {galleryImages.length > 0 && (
+              <div className="mt-10 border-t border-neutral-200 pt-8 dark:border-neutral-800">
+                <ArticleGallery images={galleryImages} />
+              </div>
+            )}
 
             {/* INLINE AD */}
             <div className="my-10">

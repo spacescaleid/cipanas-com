@@ -15,15 +15,21 @@ import {
   Redo,
   Link as LinkIcon,
   Image as ImageIcon,
+  ImagePlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Props {
   editor: Editor | null;
   onInsertImage?: () => void;
+  onInsertImageWithCaption?: () => void;
 }
 
-export function EditorToolbar({ editor, onInsertImage }: Props) {
+export function EditorToolbar({
+  editor,
+  onInsertImage,
+  onInsertImageWithCaption,
+}: Props) {
   if (!editor) return null;
 
   const btn = (active: boolean) =>
@@ -131,14 +137,30 @@ export function EditorToolbar({ editor, onInsertImage }: Props) {
       >
         <LinkIcon className="h-4 w-4" />
       </button>
+
+      {/* Insert Image tanpa caption */}
       {onInsertImage && (
         <button
           type="button"
           onClick={onInsertImage}
           className={btn(false)}
-          aria-label="Insert image"
+          aria-label="Sisipkan gambar"
+          title="Sisipkan gambar (tanpa caption)"
         >
           <ImageIcon className="h-4 w-4" />
+        </button>
+      )}
+
+      {/* Insert Image DENGAN caption */}
+      {onInsertImageWithCaption && (
+        <button
+          type="button"
+          onClick={onInsertImageWithCaption}
+          className={btn(editor.isActive("figure"))}
+          aria-label="Sisipkan gambar dengan caption"
+          title="Sisipkan gambar dengan caption"
+        >
+          <ImagePlus className="h-4 w-4" />
         </button>
       )}
 
