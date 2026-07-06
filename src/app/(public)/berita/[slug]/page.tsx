@@ -111,7 +111,7 @@ export default async function ArticleDetailPage({ params }: Props) {
               </span>
             </div>
 
-            {/* ⭐ Gallery/Cover — langsung di bawah meta, sebelum isi tulisan */}
+            {/* Gallery/Cover — langsung di bawah meta, sebelum isi tulisan */}
             <div className="mt-6">
               <ArticleGallery
                 images={coverImages}

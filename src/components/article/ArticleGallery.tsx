@@ -89,7 +89,9 @@ export function ArticleGallery({
 
   // overlayText = teks DI ATAS foto (bukan caption)
   const hasOverlay =
-    currentSlide.overlayText && currentSlide.overlayText.length > 0;
+    currentSlide.overlayText !== null &&
+    currentSlide.overlayText !== undefined &&
+    currentSlide.overlayText.length > 0;
 
   return (
     <div>
