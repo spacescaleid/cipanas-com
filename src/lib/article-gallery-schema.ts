@@ -13,6 +13,16 @@ export const addGalleryImageSchema = z.object({
       (val) => val.startsWith("data:image/"),
       "File harus berupa gambar (JPEG/PNG/WebP)"
     ),
+  title: z
+    .string()
+    .max(200, "Judul maksimal 200 karakter")
+    .optional()
+    .or(z.literal("")),
+  overlayText: z
+    .string()
+    .max(300, "Overlay text maksimal 300 karakter")
+    .optional()
+    .or(z.literal("")),
   caption: z
     .string()
     // Caption fleksibel panjang-pendeknya — boleh kosong, boleh pendek,
@@ -27,7 +37,33 @@ export const addGalleryImageSchema = z.object({
 export type AddGalleryImageInput = z.infer<typeof addGalleryImageSchema>;
 
 /**
- * Schema untuk update caption gambar.
+ * Schema untuk update semua field teks gambar sekaligus
+ * (title + overlayText + caption dalam satu call).
+ */
+export const updateImageFieldsSchema = z.object({
+  imageId: z.string().min(1),
+  title: z
+    .string()
+    .max(200, "Judul maksimal 200 karakter")
+    .optional()
+    .or(z.literal("")),
+  overlayText: z
+    .string()
+    .max(300, "Overlay text maksimal 300 karakter")
+    .optional()
+    .or(z.literal("")),
+  caption: z
+    .string()
+    .max(500, "Caption maksimal 500 karakter")
+    .optional()
+    .or(z.literal("")),
+});
+
+export type UpdateImageFieldsInput = z.infer<typeof updateImageFieldsSchema>;
+
+/**
+ * Dipertahankan untuk backward-compat — masih diimport di actions lama.
+ * @deprecated Gunakan updateImageFieldsSchema untuk update field teks.
  */
 export const updateCaptionSchema = z.object({
   imageId: z.string().min(1),

@@ -59,11 +59,17 @@ export default async function ArticleDetailPage({ params }: Props) {
 
   const readingTime = estimateReadingTime(article.content);
 
-  // Fetch gallery/cover images
+  // Fetch gallery images — select semua field yang dibutuhkan SlideImage
   const coverImages = await prisma.articleImage.findMany({
     where: { articleId: article.id },
     orderBy: { order: "asc" },
-    select: { id: true, url: true, caption: true },
+    select: {
+      id: true,
+      url: true,
+      title: true,
+      overlayText: true,
+      caption: true,
+    },
   });
 
   return (
@@ -105,7 +111,7 @@ export default async function ArticleDetailPage({ params }: Props) {
               </span>
             </div>
 
-            {/* ⭐ Cover Slideshow (multi-foto + text overlay) atau single cover */}
+            {/* ⭐ Gallery/Cover — langsung di bawah meta, sebelum isi tulisan */}
             <div className="mt-6">
               <ArticleGallery
                 images={coverImages}
@@ -146,7 +152,6 @@ export default async function ArticleDetailPage({ params }: Props) {
               />
             </Suspense>
 
-            {/* Comment Section */}
             <div className="mt-10">
               <CommentSection articleId={article.id} />
             </div>

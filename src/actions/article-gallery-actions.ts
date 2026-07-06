@@ -13,6 +13,7 @@ import {
 } from "@/lib/cloudinary-upload";
 import {
   addGalleryImageSchema,
+  updateImageFieldsSchema, // ← TAMBAH import
   updateCaptionSchema,
 } from "@/lib/article-gallery-schema";
 import { sanitizeText } from "@/lib/sanitize";
@@ -28,7 +29,7 @@ export type ActionResult<T = void> =
   | { success: true; data: T }
   | { success: false; error: string };
 
-// ─── Helper: Cek ownership (penulis ATAU admin) ─────────────────────────────
+// ─── Helper: Cek ownership (penulis ATAU admin) ──────────────────────────────
 
 async function requireArticleAccess(articleId: string) {
   const session = await getServerSession(authOptions);
@@ -65,6 +66,8 @@ export async function addArticleImageAction(
   const rawInput = {
     articleId: formData.get("articleId"),
     imageDataUri: formData.get("imageDataUri"),
+    title: formData.get("title") ?? "",         // ← TAMBAH
+    overlayText: formData.get("overlayText") ?? "", // ← TAMBAH
     caption: formData.get("caption") ?? "",
   };
 
@@ -74,7 +77,8 @@ export async function addArticleImageAction(
     return { success: false, error: firstError };
   }
 
-  const { articleId, imageDataUri, caption } = parsed.data;
+  // ← TAMBAH destructure title dan overlayText
+  const { articleId, imageDataUri, title, overlayText, caption } = parsed.data;
 
   // Auth + ownership check
   let accessInfo;
@@ -84,7 +88,7 @@ export async function addArticleImageAction(
     return { success: false, error: (err as Error).message };
   }
 
-  // Rate limit
+  // Rate limit — tidak berubah
   try {
     const headersList = await headers();
     const ip = getClientIpFromNextHeaders(headersList);
@@ -102,7 +106,7 @@ export async function addArticleImageAction(
     // Non-fatal
   }
 
-  // Max 10 gambar per artikel
+  // Max 10 gambar per artikel — tidak berubah
   const existingCount = await prisma.articleImage.count({
     where: { articleId },
   });
@@ -113,13 +117,13 @@ export async function addArticleImageAction(
     };
   }
 
-  // Validasi ukuran (max 5MB approximate dari base64)
+  // Validasi ukuran — tidak berubah
   const base64Length = imageDataUri.length * 0.75;
   if (base64Length > 5 * 1024 * 1024) {
     return { success: false, error: "Ukuran gambar maksimal 5MB" };
   }
 
-  // Upload ke Cloudinary
+  // Upload ke Cloudinary — tidak berubah
   let uploadResult;
   try {
     uploadResult = await uploadArticleImage(imageDataUri, articleId);
@@ -131,7 +135,11 @@ export async function addArticleImageAction(
     };
   }
 
-  // Sanitasi caption (plain text)
+  // Sanitasi semua field teks
+  const safeTitle = title ? sanitizeText(title).trim() || null : null;           // ← TAMBAH
+  const safeOverlayText = overlayText                                             // ← TAMBAH
+    ? sanitizeText(overlayText).trim() || null                                    // ← TAMBAH
+    : null;                                                                       // ← TAMBAH
   const safeCaption = caption ? sanitizeText(caption).trim() || null : null;
 
   // Save ke DB
@@ -141,6 +149,8 @@ export async function addArticleImageAction(
         articleId,
         url: uploadResult.url,
         publicId: uploadResult.publicId,
+        title: safeTitle,           // ← TAMBAH
+        overlayText: safeOverlayText, // ← TAMBAH
         caption: safeCaption,
         order: existingCount,
       },
@@ -162,7 +172,64 @@ export async function addArticleImageAction(
   }
 }
 
-// ─── 2. Update Caption ───────────────────────────────────────────────────────
+// ─── 2. Update Image Fields (title + overlayText + caption) ─────────────────
+// FUNGSI BARU — menggantikan updateArticleImageCaptionAction untuk update
+// semua field teks sekaligus. updateArticleImageCaptionAction dipertahankan
+// di bawah untuk backward-compat.
+
+export async function updateArticleImageFieldsAction(
+  imageId: string,
+  fields: { title?: string; overlayText?: string; caption?: string }
+): Promise<ActionResult> {
+  const parsed = updateImageFieldsSchema.safeParse({ imageId, ...fields });
+  if (!parsed.success) {
+    return { success: false, error: "Data tidak valid" };
+  }
+
+  const image = await prisma.articleImage.findUnique({
+    where: { id: imageId },
+    select: { articleId: true },
+  });
+  if (!image) {
+    return { success: false, error: "Gambar tidak ditemukan" };
+  }
+
+  try {
+    await requireArticleAccess(image.articleId);
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+
+  const safeTitle = parsed.data.title
+    ? sanitizeText(parsed.data.title).trim() || null
+    : null;
+  const safeOverlayText = parsed.data.overlayText
+    ? sanitizeText(parsed.data.overlayText).trim() || null
+    : null;
+  const safeCaption = parsed.data.caption
+    ? sanitizeText(parsed.data.caption).trim() || null
+    : null;
+
+  try {
+    await prisma.articleImage.update({
+      where: { id: imageId },
+      data: {
+        title: safeTitle,
+        overlayText: safeOverlayText,
+        caption: safeCaption,
+      },
+    });
+  } catch (err) {
+    console.error("[IMAGE_FIELDS_UPDATE_ERROR]", err);
+    return { success: false, error: "Gagal update data gambar" };
+  }
+
+  return { success: true, data: undefined };
+}
+
+// ─── 3. Update Caption (backward-compat) ─────────────────────────────────────
+// Dipertahankan karena masih diimport di dashboard/ArticleGallery.tsx lama.
+// Tidak dihapus supaya tidak breaking saat komponen lama masih ada.
 
 export async function updateArticleImageCaptionAction(
   imageId: string,
@@ -202,7 +269,8 @@ export async function updateArticleImageCaptionAction(
   return { success: true, data: undefined };
 }
 
-// ─── 3. Delete Image ─────────────────────────────────────────────────────────
+// ─── 4. Delete Image ──────────────────────────────────────────────────────────
+// Tidak ada perubahan dari file asli.
 
 export async function deleteArticleImageAction(
   imageId: string
@@ -245,7 +313,8 @@ export async function deleteArticleImageAction(
   return { success: true, data: undefined };
 }
 
-// ─── 4. Reorder Images ───────────────────────────────────────────────────────
+// ─── 5. Reorder Images ────────────────────────────────────────────────────────
+// Tidak ada perubahan dari file asli.
 
 export async function reorderArticleImagesAction(
   articleId: string,
@@ -274,7 +343,8 @@ export async function reorderArticleImagesAction(
   return { success: true, data: undefined };
 }
 
-// ─── 5. Get Gallery Images ───────────────────────────────────────────────────
+// ─── 6. Get Gallery Images ────────────────────────────────────────────────────
+// BERUBAH: tambah title dan overlayText ke select.
 
 export async function getArticleGalleryImages(articleId: string) {
   return prisma.articleImage.findMany({
@@ -283,6 +353,8 @@ export async function getArticleGalleryImages(articleId: string) {
     select: {
       id: true,
       url: true,
+      title: true,       // ← TAMBAH
+      overlayText: true, // ← TAMBAH
       caption: true,
       order: true,
     },

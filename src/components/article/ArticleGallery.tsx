@@ -9,7 +9,8 @@ interface SlideImage {
   id: string;
   url: string;
   title: string | null;
-  caption: string | null;
+  overlayText: string | null; // teks DI ATAS gambar (overlay)
+  caption: string | null;     // teks di BAWAH gambar (deskripsi normal)
 }
 
 interface Props {
@@ -18,6 +19,17 @@ interface Props {
   articleTitle: string;
 }
 
+/**
+ * Auto-fit font size untuk overlay text berdasarkan panjang karakter.
+ *
+ * Pendekatan: class Tailwind per bucket panjang teks.
+ * Dipilih karena:
+ * - Tidak butuh JS measurement / ResizeObserver
+ * - Tailwind class sudah ada di build, tidak perlu CSS-in-JS
+ * - Cukup presisi untuk use case overlay foto (teks pendek = besar, panjang = kecil)
+ * Alternatif clamp() murni CSS tidak dipilih karena panjang teks tidak bisa
+ * diketahui CSS tanpa container query yang lebih kompleks.
+ */
 function getOverlayFontClass(text: string): string {
   const len = text.length;
   if (len <= 15) return "text-3xl md:text-5xl lg:text-6xl font-bold";
@@ -56,7 +68,7 @@ export function ArticleGallery({
 
   if (totalSlides === 0) return null;
 
-  // Single cover fallback
+  // Single cover fallback (tidak ada gallery images)
   if (!hasSlides && fallbackCover) {
     return (
       <div className="relative aspect-[16/9] overflow-hidden rounded-xl bg-neutral-100 dark:bg-neutral-800">
@@ -75,7 +87,9 @@ export function ArticleGallery({
   const currentSlide = images[currentIndex];
   if (!currentSlide) return null;
 
-  const hasOverlayText = currentSlide.caption && currentSlide.caption.length > 0;
+  // overlayText = teks DI ATAS foto (bukan caption)
+  const hasOverlay =
+    currentSlide.overlayText && currentSlide.overlayText.length > 0;
 
   return (
     <div>
@@ -96,20 +110,20 @@ export function ArticleGallery({
             className="object-cover animate-fade-in"
           />
 
-          {/* Gradient overlay untuk teks overlay */}
-          {hasOverlayText && (
+          {/* Gradient gelap di bagian bawah foto — hanya muncul kalau ada overlay text */}
+          {hasOverlay && (
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
           )}
 
-          {/* Text overlay (dari caption) — auto-fit font */}
-          {hasOverlayText && (
+          {/* overlayText — teks DI ATAS foto, posisi bawah dalam area gambar */}
+          {hasOverlay && (
             <div className="absolute inset-x-0 bottom-0 p-6 md:p-10">
               <p
                 className={`text-white drop-shadow-lg leading-tight ${getOverlayFontClass(
-                  currentSlide.caption!
+                  currentSlide.overlayText!
                 )}`}
               >
-                {currentSlide.caption}
+                {currentSlide.overlayText}
               </p>
             </div>
           )}
@@ -164,7 +178,11 @@ export function ArticleGallery({
         )}
       </div>
 
-      {/* ⭐ Title (bold besar) + Caption/Description (normal kecil) DI BAWAH gambar */}
+      {/*
+       * Title (bold besar) dan caption (normal kecil) DI BAWAH gambar.
+       * Keduanya di luar area foto — bukan overlay.
+       * title = heading foto, caption = deskripsi singkat.
+       */}
       {(currentSlide.title || currentSlide.caption) && (
         <div className="mt-3 px-1">
           {currentSlide.title && (
@@ -172,8 +190,8 @@ export function ArticleGallery({
               {currentSlide.title}
             </h3>
           )}
-          {currentSlide.caption && !hasOverlayText && (
-            <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+          {currentSlide.caption && (
+            <p className="mt-1 text-sm font-normal text-neutral-600 dark:text-neutral-400">
               {currentSlide.caption}
             </p>
           )}

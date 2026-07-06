@@ -9,13 +9,16 @@ import toast from "react-hot-toast";
 import {
   addArticleImageAction,
   deleteArticleImageAction,
-  updateArticleImageCaptionAction,
+  updateArticleImageFieldsAction, // ← ganti dari updateArticleImageCaptionAction
   getArticleGalleryImages,
 } from "@/actions/article-gallery-actions";
 
+// ← TAMBAH title dan overlayText
 interface GalleryImage {
   id: string;
   url: string;
+  title: string | null;
+  overlayText: string | null;
   caption: string | null;
   order: number;
 }
@@ -32,33 +35,33 @@ export function ArticleGallery({ articleId }: Props) {
   const [, startTransition] = useTransition();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Load gallery images (re-fetch saat refreshKey berubah)
+  // Load gallery images — tidak berubah
   useEffect(() => {
-  let cancelled = false;
+    let cancelled = false;
 
-  startTransition(() => {
-    setLoading(true);
-  });
-
-  getArticleGalleryImages(articleId)
-    .then((imgs) => {
-      if (!cancelled) setImages(imgs);
-    })
-    .catch(() => {
-      if (!cancelled) toast.error("Gagal memuat galeri");
-    })
-    .finally(() => {
-      if (!cancelled) {
-        startTransition(() => {
-          setLoading(false);
-        });
-      }
+    startTransition(() => {
+      setLoading(true);
     });
 
-  return () => {
-    cancelled = true;
-  };
-}, [articleId, refreshKey]);
+    getArticleGalleryImages(articleId)
+      .then((imgs) => {
+        if (!cancelled) setImages(imgs);
+      })
+      .catch(() => {
+        if (!cancelled) toast.error("Gagal memuat galeri");
+      })
+      .finally(() => {
+        if (!cancelled) {
+          startTransition(() => {
+            setLoading(false);
+          });
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [articleId, refreshKey]);
 
   // Handle file select + upload
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -86,6 +89,8 @@ export function ArticleGallery({ articleId }: Props) {
       const formData = new FormData();
       formData.set("articleId", articleId);
       formData.set("imageDataUri", dataUri);
+      formData.set("title", "");         // ← TAMBAH
+      formData.set("overlayText", "");   // ← TAMBAH
       formData.set("caption", "");
 
       const result = await addArticleImageAction(null, formData);
@@ -100,19 +105,21 @@ export function ArticleGallery({ articleId }: Props) {
       setUploading(false);
     };
     reader.readAsDataURL(file);
-
     e.target.value = "";
   }
 
-  // Handle caption update
-  async function handleCaptionBlur(imageId: string, caption: string) {
-    const result = await updateArticleImageCaptionAction(imageId, caption);
+  // ← GANTI: handleFieldBlur update semua field teks sekaligus
+  async function handleFieldBlur(
+    imageId: string,
+    fields: { title?: string; overlayText?: string; caption?: string }
+  ) {
+    const result = await updateArticleImageFieldsAction(imageId, fields);
     if (!result.success) {
       toast.error(result.error);
     }
   }
 
-  // Handle delete
+  // Handle delete — tidak berubah
   async function handleDelete(imageId: string) {
     if (!confirm("Hapus gambar ini dari galeri?")) return;
 
@@ -143,7 +150,8 @@ export function ArticleGallery({ articleId }: Props) {
             Galeri Foto ({images.length}/10)
           </h3>
           <p className="mt-0.5 text-xs text-neutral-500">
-            Tambahkan foto pendukung untuk artikel ini (maks 10 foto, maks 5MB per foto)
+            Tambahkan foto pendukung untuk artikel ini (maks 10 foto, maks 5MB
+            per foto)
           </p>
         </div>
 
@@ -186,7 +194,7 @@ export function ArticleGallery({ articleId }: Props) {
           className="flex w-full items-center justify-center rounded-lg border-2 border-dashed border-neutral-300 py-10 text-sm text-neutral-500 transition hover:border-brand-500 hover:text-brand-600 dark:border-neutral-700"
         >
           <div className="text-center">
-            <ImagePlus className="mx-auto h-8 w-8 mb-2" />
+            <ImagePlus className="mx-auto mb-2 h-8 w-8" />
             <p>Klik untuk menambahkan foto pertama</p>
           </div>
         </button>
@@ -197,10 +205,11 @@ export function ArticleGallery({ articleId }: Props) {
               key={img.id}
               className="group relative overflow-hidden rounded-lg border border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900"
             >
+              {/* Foto */}
               <div className="relative aspect-[4/3] overflow-hidden">
                 <Image
                   src={img.url}
-                  alt={img.caption ?? "Foto galeri"}
+                  alt={img.title ?? img.caption ?? "Foto galeri"}
                   fill
                   sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                   className="object-cover"
@@ -214,14 +223,51 @@ export function ArticleGallery({ articleId }: Props) {
                   <Trash2 className="h-3 w-3" />
                 </button>
               </div>
-              <div className="p-2">
+
+              {/*
+               * 3 field teks dengan styling berbeda supaya user langsung
+               * tahu fungsi masing-masing tanpa membaca label panjang.
+               *
+               * title      → font-semibold, placeholder menjelaskan posisi
+               * overlayText → background amber (warna berbeda = "ini overlay")
+               * caption    → text-neutral-500 (terlihat lebih "kecil/sekunder")
+               *
+               * Semua onBlur — tidak ada auto-save per keystroke supaya
+               * tidak spam server action.
+               */}
+              <div className="space-y-1.5 p-2">
+                {/* Judul — bold besar di bawah foto */}
+                <input
+                  type="text"
+                  defaultValue={img.title ?? ""}
+                  placeholder="Judul foto (bold, di bawah gambar)..."
+                  maxLength={200}
+                  onBlur={(e) =>
+                    handleFieldBlur(img.id, { title: e.target.value })
+                  }
+                  className="w-full rounded border border-neutral-200 bg-white px-2 py-1 text-xs font-semibold text-neutral-900 outline-none transition focus:border-brand-500 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white"
+                />
+                {/* Overlay text — teks DI ATAS foto */}
+                <input
+                  type="text"
+                  defaultValue={img.overlayText ?? ""}
+                  placeholder="Teks overlay (di atas foto, ukuran auto)..."
+                  maxLength={300}
+                  onBlur={(e) =>
+                    handleFieldBlur(img.id, { overlayText: e.target.value })
+                  }
+                  className="w-full rounded border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-neutral-700 outline-none transition focus:border-amber-500 dark:border-amber-800 dark:bg-amber-950/30 dark:text-neutral-300"
+                />
+                {/* Caption — deskripsi kecil di bawah judul */}
                 <input
                   type="text"
                   defaultValue={img.caption ?? ""}
-                  placeholder="Tambah caption..."
+                  placeholder="Caption (kecil, normal, di bawah judul)..."
                   maxLength={500}
-                  onBlur={(e) => handleCaptionBlur(img.id, e.target.value)}
-                  className="w-full rounded border border-neutral-200 bg-white px-2 py-1 text-xs text-neutral-700 outline-none transition focus:border-brand-500 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300"
+                  onBlur={(e) =>
+                    handleFieldBlur(img.id, { caption: e.target.value })
+                  }
+                  className="w-full rounded border border-neutral-200 bg-white px-2 py-1 text-xs text-neutral-500 outline-none transition focus:border-brand-500 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400"
                 />
               </div>
             </div>

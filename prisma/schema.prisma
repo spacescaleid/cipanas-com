@@ -183,6 +183,7 @@ model ArticleImage {
   url       String
   publicId  String?
   title     String?
+  overlayText String?
   caption   String?  @db.Text
   order     Int      @default(0)
   createdAt DateTime @default(now())
