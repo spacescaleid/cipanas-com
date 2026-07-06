@@ -40,10 +40,6 @@ export function detectPlatform(url: string): VideoPlatform | null {
 
 // ─── YouTube ─────────────────────────────────────────────────────────────────
 
-/**
- * Extract YouTube video ID dari URL.
- * Support: watch, shorts, embed, youtu.be
- */
 export function extractYouTubeId(url: string): string | null {
   if (!url) return null;
   const match = url
@@ -73,11 +69,6 @@ export function getYouTubeEmbedUrl(videoId: string): string {
 
 // ─── TikTok ──────────────────────────────────────────────────────────────────
 
-/**
- * Extract TikTok video ID dari URL.
- * Format: https://www.tiktok.com/@user/video/1234567890123456789
- * ID = angka numerik panjang.
- */
 export function extractTikTokId(url: string): string | null {
   if (!url) return null;
   const match = url.trim().match(/tiktok\.com\/.*\/video\/(\d+)/);
@@ -85,24 +76,51 @@ export function extractTikTokId(url: string): string | null {
 }
 
 /**
- * Embed URL TikTok — dibangun dari ID, bukan URL mentah user.
- * Ikuti pola aman: JANGAN taruh URL mentah ke src iframe.
+ * Embed URL TikTok.
+ * Format /embed/{id} — endpoint aktif TikTok untuk iframe embed.
+ * (Format lama /embed/v2/{id} juga masih works tapi format baru lebih standard).
  */
 export function getTikTokEmbedUrl(videoId: string): string {
-  return `https://www.tiktok.com/embed/v2/${videoId}`;
+  return `https://www.tiktok.com/embed/${videoId}`;
+}
+
+/**
+ * Fetch thumbnail TikTok via oEmbed API — server-side only.
+ * TikTok oEmbed: https://www.tiktok.com/oembed?url={sourceUrl}
+ * Response JSON punya `thumbnail_url`.
+ *
+ * Return null kalau gagal fetch/parse (network error, invalid URL, dsb).
+ * Fungsi ini dipakai di server action saat createVideoAction.
+ */
+export async function fetchTikTokThumbnail(
+  sourceUrl: string
+): Promise<string | null> {
+  try {
+    const oembedUrl = `https://www.tiktok.com/oembed?url=${encodeURIComponent(sourceUrl)}`;
+    const res = await fetch(oembedUrl, {
+      // TikTok oEmbed kadang lambat — timeout 5 detik cukup
+      signal: AbortSignal.timeout(5000),
+      headers: {
+        // UA browser normal untuk hindari rate limit / block
+        "User-Agent":
+          "Mozilla/5.0 (compatible; CipanasComBot/1.0; +https://cipanas.com)",
+      },
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { thumbnail_url?: string };
+    return data.thumbnail_url ?? null;
+  } catch {
+    // Silent fail — thumbnail tidak wajib untuk TikTok
+    return null;
+  }
 }
 
 // ─── Instagram ───────────────────────────────────────────────────────────────
 
 /**
  * Validasi URL Instagram.
- * Cuma cek domain — tidak extract ID karena embed resmi butuh Meta Developer App.
- *
- * Keputusan desain: Instagram ditampilkan sebagai kartu link-out
- * ("Lihat di Instagram" + ikon), bukan iframe embed.
- * Alasan: embed resmi Instagram butuh Meta Developer App + API key,
- * yang terlalu complex untuk scope ini. Ini bukan batasan teknis kita —
- * ini batasan platform (Meta restrict embed tanpa API).
+ * Instagram tidak support oEmbed tanpa Meta Developer App + Access Token.
+ * Solusi: author WAJIB upload thumbnail manual saat submit video Instagram.
  */
 export function isValidInstagramUrl(url: string): boolean {
   if (!url) return false;
@@ -122,10 +140,6 @@ export interface ParsedVideoUrl {
   thumbnail: string | null;
 }
 
-/**
- * Parse URL video dari berbagai platform.
- * Return parsed info atau null kalau tidak valid.
- */
 export function parseVideoUrl(url: string): ParsedVideoUrl | null {
   const platform = detectPlatform(url);
   if (!platform) return null;
@@ -148,14 +162,15 @@ export function parseVideoUrl(url: string): ParsedVideoUrl | null {
       return {
         platform,
         externalId: id,
-        thumbnail: null, // TikTok tidak punya thumbnail URL publik tanpa API
+        // Thumbnail TikTok di-fetch async di server action via fetchTikTokThumbnail()
+        // Field ini null di sini, di-set setelah oEmbed call
+        thumbnail: null,
       };
     }
 
     case "INSTAGRAM": {
       if (!isValidInstagramUrl(url)) return null;
-      // Instagram tidak ada ID yang bisa di-extract reliably tanpa API
-      // Pakai hash URL sebagai externalId (untuk unique constraint)
+      // Instagram tidak ada extractable ID — pakai hash sebagai externalId
       const hash = url
         .trim()
         .replace(/[^a-zA-Z0-9]/g, "")
@@ -163,6 +178,7 @@ export function parseVideoUrl(url: string): ParsedVideoUrl | null {
       return {
         platform,
         externalId: `ig-${hash}`,
+        // Thumbnail Instagram wajib di-upload manual — validasi di form/action
         thumbnail: null,
       };
     }
@@ -187,7 +203,7 @@ export function getEmbedUrl(
     case "TIKTOK":
       return getTikTokEmbedUrl(externalId);
     case "INSTAGRAM":
-      return null; // Tidak support embed — tampil sebagai link-out card
+      return null; // Tidak support embed — link-out
     default:
       return null;
   }
@@ -202,7 +218,7 @@ export function getEmbedAspectClass(platform: VideoPlatform): string {
       return "aspect-video"; // 16:9
     case "YOUTUBE_SHORTS":
     case "TIKTOK":
-      return "aspect-[9/16]"; // 9:16 (portrait)
+      return "aspect-[9/16]"; // 9:16 portrait
     default:
       return "aspect-video";
   }

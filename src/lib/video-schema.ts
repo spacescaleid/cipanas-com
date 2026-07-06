@@ -5,6 +5,13 @@ import { detectPlatform } from "./video-platforms";
 /**
  * Schema untuk create video.
  * URL bisa YouTube, TikTok, atau Instagram — platform auto-detected.
+ *
+ * Thumbnail field:
+ * - YouTube: auto (dari ytimg.com)
+ * - TikTok: auto (dari oEmbed API di server)
+ * - Instagram: WAJIB upload manual (Meta tidak allow oEmbed tanpa app)
+ *   → validasi runtime di server action, bukan di schema ini
+ *     (karena kondisional berdasarkan platform).
  */
 export const createVideoSchema = z.object({
   title: z
@@ -23,6 +30,12 @@ export const createVideoSchema = z.object({
       (url) => detectPlatform(url) !== null,
       "URL harus dari YouTube, TikTok, atau Instagram yang valid"
     ),
+  // Optional — hanya wajib untuk Instagram (di-validasi di server action)
+  thumbnailUrl: z
+    .string()
+    .url("URL thumbnail tidak valid")
+    .optional()
+    .or(z.literal("")),
 });
 
 export type CreateVideoInput = z.infer<typeof createVideoSchema>;

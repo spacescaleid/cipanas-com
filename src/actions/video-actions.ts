@@ -10,7 +10,7 @@ import type { ZodError } from "zod";
 
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { parseVideoUrl } from "@/lib/video-platforms";
+import { parseVideoUrl, fetchTikTokThumbnail } from "@/lib/video-platforms";
 import { createVideoSchema } from "@/lib/video-schema";
 import { sanitizeText } from "@/lib/sanitize";
 import {
@@ -98,6 +98,7 @@ export async function createVideoAction(
     title: formData.get("title"),
     description: formData.get("description") ?? "",
     videoUrl: formData.get("videoUrl"),
+    thumbnailUrl: formData.get("thumbnailUrl") ?? "",
   };
 
   const parsed = createVideoSchema.safeParse(rawInput);
@@ -105,14 +106,15 @@ export async function createVideoAction(
     return { success: false, error: getFirstZodError(parsed.error) };
   }
 
-  const { title, description, videoUrl } = parsed.data;
+  const { title, description, videoUrl, thumbnailUrl } = parsed.data;
 
   // Parse URL → detect platform + extract ID
   const parsedVideo = parseVideoUrl(videoUrl);
   if (!parsedVideo) {
     return {
       success: false,
-      error: "URL video tidak valid. Pastikan URL dari YouTube, TikTok, atau Instagram.",
+      error:
+        "URL video tidak valid. Pastikan URL dari YouTube, TikTok, atau Instagram.",
     };
   }
 
@@ -141,6 +143,36 @@ export async function createVideoAction(
     return { success: false, error: "Judul terlalu pendek setelah sanitasi" };
   }
 
+  // ── Resolve final thumbnail per platform ────────────────────────────────
+  // YouTube → dari parseVideoUrl (ytimg.com)
+  // TikTok → fetch oEmbed API server-side (async, boleh gagal)
+  // Instagram → WAJIB dari thumbnailUrl manual upload (validasi di sini)
+  let finalThumbnail: string | null = parsedVideo.thumbnail;
+
+  if (parsedVideo.platform === "TIKTOK") {
+    // Fetch async — kalau gagal, thumbnail tetap null (fallback ke ikon)
+    const tiktokThumb = await fetchTikTokThumbnail(videoUrl);
+    if (tiktokThumb) {
+      finalThumbnail = tiktokThumb;
+    } else if (thumbnailUrl) {
+      // Author juga bisa opsional upload thumbnail manual untuk TikTok
+      // sebagai fallback kalau oEmbed gagal
+      finalThumbnail = thumbnailUrl;
+    }
+  }
+
+  if (parsedVideo.platform === "INSTAGRAM") {
+    // Wajib: Instagram tidak bisa auto-fetch thumbnail
+    if (!thumbnailUrl) {
+      return {
+        success: false,
+        error:
+          "Video Instagram butuh thumbnail manual. Silakan upload gambar thumbnail dulu.",
+      };
+    }
+    finalThumbnail = thumbnailUrl;
+  }
+
   const slug = await generateUniqueVideoSlug(safeTitle);
 
   let video;
@@ -153,7 +185,7 @@ export async function createVideoAction(
         platform: parsedVideo.platform,
         externalId: parsedVideo.externalId,
         sourceUrl: videoUrl,
-        thumbnail: parsedVideo.thumbnail,
+        thumbnail: finalThumbnail,
         authorId: user.id,
         status: "PENDING",
       },
