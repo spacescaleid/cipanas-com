@@ -49,7 +49,6 @@ export async function POST(request: Request) {
 
     const { title, content, coverImage, categoryId, action } = parsed.data;
 
-    // ⚠️ Sanitasi input sebelum simpan (defense in depth)
     const safeTitle = sanitizeText(title).trim();
     const safeContent = sanitizeArticleHtml(content);
 
@@ -60,7 +59,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Validasi category exists
     const category = await prisma.category.findUnique({
       where: { id: categoryId },
     });
@@ -73,17 +71,46 @@ export async function POST(request: Request) {
 
     const slug = await generateUniqueSlug(safeTitle);
 
-    const article = await prisma.article.create({
-      data: {
-        title: safeTitle,
-        slug,
-        content: safeContent, // ← sanitized
-        coverImage: coverImage || null,
-        categoryId,
-        authorId: session.user.id,
-        status: action, // "DRAFT" atau "PENDING"
-      },
-      select: { id: true, slug: true, status: true },
+    const galleryPhotos = Array.isArray(body.galleryPhotos)
+      ? body.galleryPhotos.slice(0, 10)
+      : [];
+
+    const article = await prisma.$transaction(async (tx) => {
+      const newArticle = await tx.article.create({
+        data: {
+          title: safeTitle,
+          slug,
+          content: safeContent,
+          coverImage: coverImage || null,
+          categoryId,
+          authorId: session.user.id,
+          status: action,
+        },
+        select: { id: true, slug: true, status: true },
+      });
+
+      if (galleryPhotos.length > 0) {
+        await tx.articleImage.createMany({
+          data: galleryPhotos.map(
+            (
+              photo: { url: string; title?: string; caption?: string; order?: number },
+              index: number
+            ) => ({
+              articleId: newArticle.id,
+              url: photo.url,
+              title: photo.title
+                ? sanitizeText(photo.title).trim() || null
+                : null,
+              caption: photo.caption
+                ? sanitizeText(photo.caption).trim() || null
+                : null,
+              order: photo.order ?? index,
+            })
+          ),
+        });
+      }
+
+      return newArticle;
     });
 
     return NextResponse.json(

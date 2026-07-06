@@ -5,6 +5,7 @@ import { requireRole } from "@/lib/auth-utils";
 import { getAllCategories } from "@/lib/articles";
 import { getMyArticleById } from "@/lib/dashboard-queries";
 import { ArticleForm } from "@/components/dashboard/ArticleForm";
+import { prisma } from "@/lib/prisma";
 
 export default async function EditTulisPage({
   params,
@@ -14,9 +15,14 @@ export default async function EditTulisPage({
   const session = await requireRole(["CONTRIBUTOR", "ADMIN", "SUPER_ADMIN"]);
   const { id } = await params;
 
-  const [article, categories] = await Promise.all([
+  const [article, categories, galleryImages] = await Promise.all([
     getMyArticleById(session.user.id, id),
     getAllCategories(),
+    prisma.articleImage.findMany({
+      where: { articleId: id },
+      orderBy: { order: "asc" },
+      select: { id: true, url: true, title: true, caption: true },
+    }),
   ]);
 
   if (!article) notFound();
@@ -56,6 +62,7 @@ export default async function EditTulisPage({
           status: article.status,
           revisionNote: article.revisionNote,
         }}
+        initialGallery={galleryImages}
       />
     </div>
   );

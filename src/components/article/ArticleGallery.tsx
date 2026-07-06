@@ -8,6 +8,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 interface SlideImage {
   id: string;
   url: string;
+  title: string | null;
   caption: string | null;
 }
 
@@ -53,7 +54,6 @@ export function ArticleGallery({
     return () => clearInterval(interval);
   }, [totalSlides, isPaused, goNext]);
 
-  // Early returns SETELAH semua hooks
   if (totalSlides === 0) return null;
 
   // Single cover fallback
@@ -75,82 +75,108 @@ export function ArticleGallery({
   const currentSlide = images[currentIndex];
   if (!currentSlide) return null;
 
-  return (
-    <div
-      className="relative overflow-hidden rounded-xl bg-neutral-900"
-      onMouseEnter={() => setIsPaused(true)}
-      onMouseLeave={() => setIsPaused(false)}
-    >
-      <div className="relative aspect-[16/9]">
-        <Image
-          key={currentSlide.id}
-          src={currentSlide.url}
-          alt={currentSlide.caption ?? articleTitle}
-          fill
-          priority={currentIndex === 0}
-          sizes="(max-width: 1024px) 100vw, 66vw"
-          className="object-cover animate-fade-in"
-        />
+  const hasOverlayText = currentSlide.caption && currentSlide.caption.length > 0;
 
-        {currentSlide.caption && (
-          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+  return (
+    <div>
+      {/* Slideshow */}
+      <div
+        className="relative overflow-hidden rounded-xl bg-neutral-900"
+        onMouseEnter={() => setIsPaused(true)}
+        onMouseLeave={() => setIsPaused(false)}
+      >
+        <div className="relative aspect-[16/9]">
+          <Image
+            key={currentSlide.id}
+            src={currentSlide.url}
+            alt={currentSlide.title ?? articleTitle}
+            fill
+            priority={currentIndex === 0}
+            sizes="(max-width: 1024px) 100vw, 66vw"
+            className="object-cover animate-fade-in"
+          />
+
+          {/* Gradient overlay untuk teks overlay */}
+          {hasOverlayText && (
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+          )}
+
+          {/* Text overlay (dari caption) — auto-fit font */}
+          {hasOverlayText && (
+            <div className="absolute inset-x-0 bottom-0 p-6 md:p-10">
+              <p
+                className={`text-white drop-shadow-lg leading-tight ${getOverlayFontClass(
+                  currentSlide.caption!
+                )}`}
+              >
+                {currentSlide.caption}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Navigation arrows */}
+        {totalSlides > 1 && (
+          <>
+            <button
+              type="button"
+              onClick={goPrev}
+              className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-black/40 p-2 text-white backdrop-blur-sm transition hover:bg-black/60"
+              aria-label="Foto sebelumnya"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              onClick={goNext}
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-black/40 p-2 text-white backdrop-blur-sm transition hover:bg-black/60"
+              aria-label="Foto berikutnya"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
+          </>
         )}
 
-        {currentSlide.caption && (
-          <div className="absolute inset-x-0 bottom-0 p-6 md:p-10">
-            <p
-              className={`text-white drop-shadow-lg leading-tight ${getOverlayFontClass(
-                currentSlide.caption
-              )}`}
-            >
-              {currentSlide.caption}
-            </p>
+        {/* Dots */}
+        {totalSlides > 1 && (
+          <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-1.5">
+            {images.map((_, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => setCurrentIndex(idx)}
+                className={`h-2 rounded-full transition-all ${
+                  idx === currentIndex
+                    ? "w-6 bg-white"
+                    : "w-2 bg-white/50 hover:bg-white/75"
+                }`}
+                aria-label={`Foto ${idx + 1}`}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Counter */}
+        {totalSlides > 1 && (
+          <div className="absolute right-3 top-3 rounded-full bg-black/50 px-2.5 py-0.5 text-xs font-medium text-white backdrop-blur-sm">
+            {currentIndex + 1} / {totalSlides}
           </div>
         )}
       </div>
 
-      {totalSlides > 1 && (
-        <>
-          <button
-            type="button"
-            onClick={goPrev}
-            className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-black/40 p-2 text-white backdrop-blur-sm transition hover:bg-black/60"
-            aria-label="Foto sebelumnya"
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-          <button
-            type="button"
-            onClick={goNext}
-            className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-black/40 p-2 text-white backdrop-blur-sm transition hover:bg-black/60"
-            aria-label="Foto berikutnya"
-          >
-            <ChevronRight className="h-5 w-5" />
-          </button>
-        </>
-      )}
-
-      {totalSlides > 1 && (
-        <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-1.5">
-          {images.map((_, idx) => (
-            <button
-              key={idx}
-              type="button"
-              onClick={() => setCurrentIndex(idx)}
-              className={`h-2 rounded-full transition-all ${
-                idx === currentIndex
-                  ? "w-6 bg-white"
-                  : "w-2 bg-white/50 hover:bg-white/75"
-              }`}
-              aria-label={`Foto ${idx + 1}`}
-            />
-          ))}
-        </div>
-      )}
-
-      {totalSlides > 1 && (
-        <div className="absolute right-3 top-3 rounded-full bg-black/50 px-2.5 py-0.5 text-xs font-medium text-white backdrop-blur-sm">
-          {currentIndex + 1} / {totalSlides}
+      {/* ⭐ Title (bold besar) + Caption/Description (normal kecil) DI BAWAH gambar */}
+      {(currentSlide.title || currentSlide.caption) && (
+        <div className="mt-3 px-1">
+          {currentSlide.title && (
+            <h3 className="font-serif text-xl font-bold text-neutral-900 dark:text-white md:text-2xl">
+              {currentSlide.title}
+            </h3>
+          )}
+          {currentSlide.caption && !hasOverlayText && (
+            <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+              {currentSlide.caption}
+            </p>
+          )}
         </div>
       )}
     </div>

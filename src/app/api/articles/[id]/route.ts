@@ -20,7 +20,6 @@ export async function PATCH(request: Request, { params }: RouteContext) {
   const { id } = await params;
 
   try {
-    // Cek artikel exists & milik user (kecuali admin)
     const existing = await prisma.article.findUnique({ where: { id } });
     if (!existing) {
       return NextResponse.json(
@@ -37,7 +36,6 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Kontributor tidak boleh edit artikel yg sudah PUBLISHED
     if (isOwner && !isAdmin && existing.status === "PUBLISHED") {
       return NextResponse.json(
         { error: "Artikel yang sudah tayang tidak dapat diedit" },
@@ -60,7 +58,6 @@ export async function PATCH(request: Request, { params }: RouteContext) {
 
     const { title, content, coverImage, categoryId, action } = parsed.data;
 
-    // ⚠️ Sanitasi input sebelum simpan (defense in depth)
     const safeTitle = sanitizeText(title).trim();
     const safeContent = sanitizeArticleHtml(content);
 
@@ -71,19 +68,53 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       );
     }
 
-    const article = await prisma.article.update({
-      where: { id },
-      data: {
-        title: safeTitle,
-        content: safeContent, // ← sanitized
-        coverImage: coverImage || null,
-        categoryId,
-        status: action,
-        // Kalau dari REVISION dikirim ulang → clear revisionNote
-        revisionNote:
-          existing.status === "REVISION" ? null : existing.revisionNote,
-      },
-      select: { id: true, slug: true, status: true },
+    const galleryPhotos = Array.isArray(body.galleryPhotos)
+      ? body.galleryPhotos.slice(0, 10)
+      : null;
+
+    const article = await prisma.$transaction(async (tx) => {
+      const updated = await tx.article.update({
+        where: { id },
+        data: {
+          title: safeTitle,
+          content: safeContent,
+          coverImage: coverImage || null,
+          categoryId,
+          status: action,
+          revisionNote:
+            existing.status === "REVISION" ? null : existing.revisionNote,
+        },
+        select: { id: true, slug: true, status: true },
+      });
+
+      if (galleryPhotos !== null) {
+        await tx.articleImage.deleteMany({
+          where: { articleId: id },
+        });
+
+        if (galleryPhotos.length > 0) {
+          await tx.articleImage.createMany({
+            data: galleryPhotos.map(
+              (
+                photo: { url: string; title?: string; caption?: string; order?: number },
+                index: number
+              ) => ({
+                articleId: id,
+                url: photo.url,
+                title: photo.title
+                  ? sanitizeText(photo.title).trim() || null
+                  : null,
+                caption: photo.caption
+                  ? sanitizeText(photo.caption).trim() || null
+                  : null,
+                order: photo.order ?? index,
+              })
+            ),
+          });
+        }
+      }
+
+      return updated;
     });
 
     return NextResponse.json({
@@ -127,7 +158,6 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Kontributor hanya boleh hapus DRAFT / REJECTED / REVISION
     if (
       isOwner &&
       !isAdmin &&

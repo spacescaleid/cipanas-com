@@ -13,13 +13,14 @@ import {
   DEFAULT_ITEMS_PER_PAGE,
 } from "@/lib/pagination";
 import { Pagination } from "@/components/ui/Pagination";
+import { PLATFORM_LABELS } from "@/lib/video-platforms";
 
 export const metadata: Metadata = {
   title: "Video — Cipanas.com",
   description: "Kumpulan video berita dan liputan seputar Cipanas.",
 };
 
-export const revalidate = 300; // Cache 5 menit
+export const revalidate = 300;
 
 interface Props {
   searchParams: Promise<{ page?: string }>;
@@ -123,8 +124,33 @@ export default async function VideoPage({ searchParams }: Props) {
                         unoptimized
                       />
                     ) : (
-                      <div className="flex h-full items-center justify-center">
-                        <VideoIcon className="h-16 w-16 text-neutral-400" />
+                      <div
+                        className={`flex h-full flex-col items-center justify-center gap-2 ${
+                          video.platform === "TIKTOK"
+                            ? "bg-neutral-900"
+                            : video.platform === "INSTAGRAM"
+                            ? "bg-gradient-to-br from-purple-600 to-pink-500"
+                            : "bg-neutral-200 dark:bg-neutral-700"
+                        }`}
+                      >
+                        <VideoIcon
+                          className={`h-12 w-12 ${
+                            video.platform === "TIKTOK" ||
+                            video.platform === "INSTAGRAM"
+                              ? "text-white"
+                              : "text-neutral-400"
+                          }`}
+                        />
+                        <span
+                          className={`text-xs font-semibold ${
+                            video.platform === "TIKTOK" ||
+                            video.platform === "INSTAGRAM"
+                              ? "text-white"
+                              : "text-neutral-500"
+                          }`}
+                        >
+                          {PLATFORM_LABELS[video.platform]}
+                        </span>
                       </div>
                     )}
                     {/* Play overlay */}
