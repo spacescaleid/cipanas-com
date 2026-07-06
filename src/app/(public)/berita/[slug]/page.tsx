@@ -1,6 +1,5 @@
 // src/app/(public)/berita/[slug]/page.tsx
 import { notFound } from "next/navigation";
-import Image from "next/image";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Clock, Eye, Calendar } from "lucide-react";
@@ -60,8 +59,8 @@ export default async function ArticleDetailPage({ params }: Props) {
 
   const readingTime = estimateReadingTime(article.content);
 
-  // Fetch gallery images
-  const galleryImages = await prisma.articleImage.findMany({
+  // Fetch gallery/cover images
+  const coverImages = await prisma.articleImage.findMany({
     where: { articleId: article.id },
     orderBy: { order: "asc" },
     select: { id: true, url: true, caption: true },
@@ -106,29 +105,18 @@ export default async function ArticleDetailPage({ params }: Props) {
               </span>
             </div>
 
-            {article.coverImage && (
-              <div className="relative mt-6 aspect-[16/9] overflow-hidden rounded-xl bg-neutral-100 dark:bg-neutral-800">
-                <Image
-                  src={article.coverImage}
-                  alt={article.title}
-                  fill
-                  priority
-                  sizes="(max-width: 1024px) 100vw, 66vw"
-                  className="object-cover"
-                />
-              </div>
-            )}
+            {/* ⭐ Cover Slideshow (multi-foto + text overlay) atau single cover */}
+            <div className="mt-6">
+              <ArticleGallery
+                images={coverImages}
+                fallbackCover={article.coverImage}
+                articleTitle={article.title}
+              />
+            </div>
 
             <div className="mt-8">
               <ArticleContent html={article.content} />
             </div>
-
-            {/* ⭐ Galeri Foto (kalau ada) */}
-            {galleryImages.length > 0 && (
-              <div className="mt-10 border-t border-neutral-200 pt-8 dark:border-neutral-800">
-                <ArticleGallery images={galleryImages} />
-              </div>
-            )}
 
             {/* INLINE AD */}
             <div className="my-10">
