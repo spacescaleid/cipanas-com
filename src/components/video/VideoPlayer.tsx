@@ -17,7 +17,7 @@ export function VideoPlayer({
   sourceUrl,
   title,
 }: VideoPlayerProps) {
-  // YouTube (biasa + Shorts): iframe embed, aspect 16:9
+  // YouTube (biasa + Shorts): iframe embed, aspect 16:9, full width
   if (platform === "YOUTUBE" || platform === "YOUTUBE_SHORTS") {
     const embedUrl = `https://www.youtube.com/embed/${externalId}`;
     return (
@@ -33,23 +33,26 @@ export function VideoPlayer({
     );
   }
 
-  // TikTok: iframe embed, aspect 9:16 karena format vertikal
+  // TikTok: iframe embed, aspect 9:16 vertikal, di-center supaya tidak ada black void di container lebar
   if (platform === "TIKTOK") {
     const embedUrl = `https://www.tiktok.com/embed/v2/${externalId}`;
     return (
-      <div className="relative mx-auto aspect-[9/16] w-full max-w-sm overflow-hidden rounded-2xl bg-black">
-        <iframe
-          src={embedUrl}
-          title={title}
-          className="absolute inset-0 h-full w-full"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-          allowFullScreen
-        />
+      <div className="flex w-full justify-center">
+        <div className="relative aspect-[9/16] w-full max-w-md overflow-hidden rounded-2xl bg-black shadow-lg">
+          <iframe
+            src={embedUrl}
+            title={title}
+            className="absolute inset-0 h-full w-full"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+            scrolling="no"
+          />
+        </div>
       </div>
     );
   }
 
-  // Instagram: link-out card
+  // Instagram: link-out card (embed Instagram tidak reliable)
   if (platform === "INSTAGRAM") {
     return (
       <div className="relative aspect-video w-full overflow-hidden rounded-2xl bg-neutral-900">
@@ -74,7 +77,7 @@ export function VideoPlayer({
     );
   }
 
-  // Fallback: platform tidak dikenal — tetap render sesuatu supaya tidak ilang
+  // Fallback: platform tidak dikenal
   return (
     <div className="relative aspect-video w-full overflow-hidden rounded-2xl bg-neutral-200 dark:bg-neutral-800">
       <div className="absolute inset-0 flex flex-col items-center justify-center">
