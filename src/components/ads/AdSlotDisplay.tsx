@@ -1,112 +1,83 @@
-import { prisma } from "@/lib/prisma";
+import { PrismaClient, type AdPosition } from "@prisma/client";
 import Image from "next/image";
 import Link from "next/link";
 
-interface Props {
-  position: "HEADER" | "SIDEBAR" | "INLINE" | "FOOTER";
+class PrismaSingleton {
+  private static instance: PrismaClient;
+
+  static getInstance() {
+    if (!this.instance) {
+      this.instance = new PrismaClient();
+    }
+    return this.instance;
+  }
 }
 
-/**
- * Dimensi iklan per posisi.
- * Pattern konsisten dengan AdRotator.tsx:
- * - max-w + max-h di elemen yang SAMA (wrapper <Link>)
- * - Image pakai object-contain agar gambar UTUH tidak dipotong
- * - Tidak pakai aspect-ratio hero-banner besar
- *
- * Target tampilan: banner tipis a la Kompas.com — kompak, gambar utuh.
- */
-const AD_DIMENSIONS: Record<
-  Props["position"],
-  {
-    maxWidthClass: string;
-    maxHeightClass: string;
-    width: number;
-    height: number;
-    sizes: string;
-  }
-> = {
-  HEADER: {
-    maxWidthClass: "max-w-[970px]",
-    maxHeightClass: "max-h-[120px]",
-    width: 970,
-    height: 120,
-    sizes: "(max-width: 768px) 100vw, 970px",
-  },
-  FOOTER: {
-    maxWidthClass: "max-w-[970px]",
-    maxHeightClass: "max-h-[120px]",
-    width: 970,
-    height: 120,
-    sizes: "(max-width: 768px) 100vw, 970px",
-  },
-  SIDEBAR: {
-    maxWidthClass: "max-w-[300px]",
-    maxHeightClass: "max-h-[320px]",
-    width: 300,
-    height: 250,
-    sizes: "300px",
-  },
-  INLINE: {
-    maxWidthClass: "max-w-[728px]",
-    maxHeightClass: "max-h-[120px]",
-    width: 728,
-    height: 90,
-    sizes: "(max-width: 640px) 100vw, 728px",
-  },
+const prisma = PrismaSingleton.getInstance();
+
+type AdSlotDisplayProps = {
+  position?: AdPosition;
+  slotId?: string;
+  className?: string;
 };
 
-/**
- * Tampilkan iklan aktif dari posisi tertentu.
- * Server component — fetch dari DB, pilih satu random kalau ada banyak.
- */
-export async function AdSlotDisplay({ position }: Props) {
-  const ads = await prisma.adOrder.findMany({
+export async function AdSlotDisplay({
+  position,
+  slotId,
+  className,
+}: AdSlotDisplayProps) {
+  const now = new Date();
+
+  const ad = await prisma.adOrder.findFirst({
     where: {
       status: "ACTIVE",
-      slot: { position },
-      startDate: { lte: new Date() },
-      endDate: { gte: new Date() },
+      imageUrl: { not: null },
+      targetUrl: { not: null },
+      startDate: { lte: now },
+      endDate: { gte: now },
+      ...(slotId ? { slotId } : {}),
+      ...(position ? { slot: { position, isActive: true } } : {}),
     },
+    orderBy: { createdAt: "desc" },
     select: {
       id: true,
       imageUrl: true,
-      linkUrl: true,
+      targetUrl: true,
       altText: true,
+      slot: {
+        select: {
+          size: true,
+          label: true,
+          position: true,
+        },
+      },
     },
   });
 
-  if (ads.length === 0) return null;
-
-  // Pilih random
-  const ad = ads[Math.floor(Math.random() * ads.length)];
-
-  if (!ad.imageUrl) return null;
-
-  const { maxWidthClass, maxHeightClass, width, height, sizes } =
-    AD_DIMENSIONS[position];
+  if (!ad?.imageUrl || !ad?.targetUrl) return null;
 
   return (
-    <div className="w-full flex justify-center my-2">
-      {/*
-       * max-w & max-h WAJIB di elemen yang sama supaya constraint tinggi ter-enforce.
-       * overflow-hidden mencegah gambar overflow keluar batas.
-       */}
-      <Link
-        href={ad.linkUrl ?? "#"}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={`block w-full ${maxWidthClass} ${maxHeightClass} overflow-hidden`}
-      >
-        <Image
-          src={ad.imageUrl}
-          alt={ad.altText ?? "Iklan"}
-          width={width}
-          height={height}
-          sizes={sizes}
-          className="h-auto w-full object-contain"
-          priority={position === "HEADER"}
-        />
-      </Link>
-    </div>
+    <Link
+      href={ad.targetUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={
+        className ??
+        "block overflow-hidden rounded-xl shadow-sm transition-shadow hover:shadow-md"
+      }
+    >
+      <div className="relative w-full overflow-hidden rounded-xl bg-neutral-100 dark:bg-neutral-800">
+        <div className="relative aspect-[16/5] w-full">
+          <Image
+            src={ad.imageUrl}
+            alt={ad.altText ?? ad.slot.label ?? "Advertisement"}
+            fill
+            className="object-cover"
+          />
+        </div>
+      </div>
+    </Link>
   );
 }
+
+export default AdSlotDisplay;
